@@ -72,12 +72,13 @@ fn sign_file_c2pa(
         source: AssetRef::Path(PathBuf::from(source_path)),
         output: OutputTarget::Path(PathBuf::from(dest_path)),
         manifest_definition: manifest_json,
-        parent_path: parent_path.map(PathBuf::from),
+        parent: parent_path.map(|p| AssetRef::Path(PathBuf::from(p))),
         signer,
         signing_alg: alg,
         timestamper: tsa,
         remote_manifest_url,
         embed,
+        skip_post_sign_validation: false,
     };
 
     sign_c2pa(cfg).map(|_| ()).map_err(FfiError::from)
@@ -97,6 +98,7 @@ fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<String, 
     let cfg = C2paVerificationConfig {
         source_path: PathBuf::from(source_path),
         mode,
+        policy: None,
     };
 
     let report = verify_c2pa(cfg).map_err(FfiError::from)?;

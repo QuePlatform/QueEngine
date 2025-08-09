@@ -1,8 +1,37 @@
+// crates/engine/src/domain/verify.rs
 use serde::Serialize;
+
+/// Certificate summary extracted from the active claim signature.
+#[derive(Debug, Serialize, Clone, Default)]
+pub struct CertInfo {
+    pub alg: Option<String>,
+    pub issuer: Option<String>,
+    pub cert_serial_number: Option<String>,
+    pub time: Option<String>,
+    pub revocation_status: Option<bool>,
+    /// Certificate chain bytes. Content format depends on SDK; consumers should parse.
+    pub cert_chain: Option<Vec<u8>>,
+}
 
 /// Generic verification result. For now, a string report like c2pa::Reader
 /// produces; can be made more structured later.
 #[derive(Debug, Serialize, Clone)]
 pub struct VerificationResult {
     pub report: String,
+    /// Optional list of certificates involved in signing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificates: Option<Vec<CertInfo>>,
+    /// Structured validation statuses mapped from c2pa validation results.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<Vec<ValidationStatus>>,    
+}
+
+/// Structured validation status entry.
+#[derive(Debug, Serialize, Clone)]
+pub struct ValidationStatus {
+    pub code: String,
+    pub url: Option<String>,
+    pub explanation: Option<String>,
+    pub ingredient_uri: Option<String>,
+    pub passed: bool,
 }
