@@ -1,3 +1,5 @@
+# crates/engine/Cargo.toml
+
 [package]
 name = "que-engine"
 version = "0.2.0"
@@ -15,6 +17,7 @@ cloudhsm = []            # server-side signer (QueCloud)
 enclave  = []            # on-device signer
 wasm     = []            # optional future WASM build
 ffi      = []            # when building with the ffi crate
+bmff = ["dep:glob"] 
 
 [dependencies]
 anyhow = "1"
@@ -33,4 +36,4 @@ c2pa = { version = "0.57", optional = true, features = [
 ] }
 openssl = { version = "0.10", optional = true }
 tempfile = "3.15.0"
-glob = "0.3"
+glob = { version = "0.3", optional = true } 

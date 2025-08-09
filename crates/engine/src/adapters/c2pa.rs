@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use crate::crypto::timestamper::Timestamper;
 use crate::domain::manifest_engine::ManifestEngine;
 use crate::domain::types::{
-    AssetRef, C2paConfig, C2paVerificationConfig, FragmentedBmffConfig,
+    AssetRef, C2paConfig, C2paVerificationConfig,
     IngredientConfig, OutputTarget, VerifyMode,
 };
 use crate::domain::verify::{
@@ -21,22 +21,32 @@ use crate::domain::verify::{
 };
 
 static C2PA_SETTINGS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static BASE_SETTINGS: &str = r#"{}"#;
 
-fn with_c2pa_settings<F, T>(
-    settings: &[serde_json::Value],
-    f: F,
-) -> Result<T>
+/// Applies a stack of settings on top of a clean baseline.
+fn apply_settings(jsons: &[serde_json::Value]) -> Result<()> {
+    // Always start from a known baseline to prevent state bleed.
+    c2pa::settings::load_settings_from_str(BASE_SETTINGS, "json")?;
+    for s in jsons {
+        c2pa::settings::load_settings_from_str(&s.to_string(), "json")?;
+    }
+    Ok(())
+}
+
+/// Ensures C2PA settings are applied in a thread-safe, isolated scope.
+fn with_c2pa_settings<F, T>(settings: &[serde_json::Value], f: F) -> Result<T>
 where
     F: FnOnce() -> Result<T>,
 {
     let _guard = C2PA_SETTINGS_LOCK
         .lock()
-        .map_err(|_| anyhow::anyhow!("C2PA settings mutex was poisoned"))?;
-    for s in settings {
-        c2pa::settings::load_settings_from_str(&s.to_string(), "json")
-            .context("Failed to load C2PA settings")?;
-    }
-    f()
+        .map_err(|_| anyhow::anyhow!("C2PA settings mutex poisoned"))?;
+
+    apply_settings(settings).context("Failed to apply C2PA settings")?;
+    let res = f();
+    // Always restore the baseline after the operation, regardless of success or failure.
+    let _ = c2pa::settings::load_settings_from_str(BASE_SETTINGS, "json");
+    res
 }
 
 fn prepare_manifest_json(
@@ -170,6 +180,10 @@ impl ManifestEngine for C2pa {
         #[cfg(feature = "c2pa")]
         {
             let mut settings = Vec::new();
+            settings.push(serde_json::json!({
+                "verify": { "fetch_remote_manifests": config.allow_remote_manifests }
+            }));
+
             if let Some(policy) = &config.policy {
                 let mut enable_trust = false;
                 if let Some(anchors) = &policy.anchors {
@@ -243,57 +257,104 @@ impl ManifestEngine for C2pa {
 }
 
 impl C2pa {
+    #[cfg(all(feature = "c2pa", feature = "bmff"))]
+    pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> Result<()> {
+        // Prepare C2PA settings (skip post-sign validation if requested)
+        let settings = vec![serde_json::json!({
+            "verify": { "verify_after_sign": !cfg.skip_post_sign_validation }
+        })];
+
+        with_c2pa_settings(&settings, || {
+            // 1. Prepare manifest JSON (inject TSA if present)
+            let manifest_json = prepare_manifest_json(cfg.manifest_definition, &cfg.timestamper)?;
+
+            // 2. Create the builder
+            let mut builder = c2pa::Builder::from_json(&manifest_json)?;
+
+            // 3. Resolve signing algorithm and signer
+            let alg = cfg.signing_alg.to_c2pa();
+            let signer = cfg.signer.resolve(alg)?;
+
+            // 4. Optional remote manifest URL
+            if let Some(remote_url) = cfg.remote_manifest_url {
+                builder.set_remote_url(remote_url);
+            }
+
+            // 5. Embed or sidecar
+            if !cfg.embed {
+                builder.set_no_embed(true);
+            }
+
+            // 6. Ensure the top-level output directory exists
+            std::fs::create_dir_all(&cfg.output_dir)?;
+
+            // 7. Iterate over all init segments matching the glob
+            let init_glob_str = cfg
+                .init_glob
+                .to_str()
+                .context("Init glob pattern is not valid UTF-8")?;
+
+            for init_entry in glob::glob(init_glob_str)? {
+                let init_path = init_entry?;
+
+                // 8. Find the fragment files for this init segment
+                let init_dir = init_path
+                    .parent()
+                    .context("Init segment has no parent directory")?;
+
+                let frag_glob_path = init_dir.join(&cfg.fragments_glob);
+                let frag_glob_str = frag_glob_path
+                    .to_str()
+                    .context("Fragment glob pattern is not valid UTF-8")?;
+
+                let mut fragments = Vec::new();
+                for frag_entry in glob::glob(frag_glob_str)? {
+                    fragments.push(frag_entry?);
+                }
+
+                // 9. Create an output subdirectory for this init segment
+                let sub_output_dir = cfg
+                    .output_dir
+                    .join(init_dir.file_name().context("Invalid init segment directory name")?);
+                std::fs::create_dir_all(&sub_output_dir)?;
+
+                // 10. Sign the init + fragments into the output directory
+                builder.sign_fragmented_files(
+                    &*signer,
+                    &init_path,
+                    &fragments,
+                    &sub_output_dir,
+                )?;
+            }
+
+            Ok(())
+        })
+    }
+    
+    /// Create an ingredient from an asset.
+    /// If `output` is `OutputTarget::Memory`, returns the serialized `ingredient.json` bytes.
+    /// If `OutputTarget::Path(dir)`, writes files to the folder.
     #[cfg(feature = "c2pa")]
     pub fn create_ingredient(config: IngredientConfig) -> Result<Option<Vec<u8>>> {
         let (source_path, _temp_dir) = asset_to_temp_path(&config.source)?;
 
         match config.output {
             OutputTarget::Path(dir) => {
+                // Ensure the directory exists
                 std::fs::create_dir_all(&dir)?;
+                // Create the ingredient and write it to the folder
                 let report = Ingredient::from_file_with_folder(&source_path, &dir)?;
-                std::fs::write(dir.join("ingredient.json"), report.to_string().as_bytes())?;
+                std::fs::write(
+                    dir.join("ingredient.json"),
+                    report.to_string().as_bytes(),
+                )?;
                 Ok(None)
             }
             OutputTarget::Memory => {
+                // Return the ingredient.json as bytes
                 let report = Ingredient::from_file(&source_path)?.to_string();
                 Ok(Some(report.into_bytes()))
             }
         }
-    }
-
-    #[cfg(feature = "c2pa")]
-    pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> Result<()> {
-        let settings = vec![serde_json::json!({
-            "verify": { "verify_after_sign": !cfg.skip_post_sign_validation }
-        })];
-
-        with_c2pa_settings(&settings, || {
-            let manifest_json = prepare_manifest_json(cfg.manifest_definition, &cfg.timestamper)?;
-            let mut builder = c2pa::Builder::from_json(&manifest_json)?;
-            let alg = cfg.signing_alg.to_c2pa();
-            let signer = cfg.signer.resolve(alg)?;
-
-            if let Some(remote_url) = cfg.remote_manifest_url {
-                builder.set_remote_url(remote_url);
-            }
-            if !cfg.embed {
-                builder.set_no_embed(true);
-            }
-
-            let ip = cfg.init_glob.to_str().context("Init glob pattern is not valid UTF-8")?;
-            for init_entry in glob::glob(ip)? {
-                let p = init_entry?;
-                let mut fragments = Vec::new();
-                let init_dir = p.parent().context("Init segment has no parent directory")?;
-                let seg_glob = init_dir.join(&cfg.fragments_glob);
-                let seg_glob_str = seg_glob.to_str().context("Fragment glob pattern is not valid UTF-8")?;
-                for seg_entry in glob::glob(seg_glob_str)? {
-                    fragments.push(seg_entry?);
-                }
-                let new_output_path = cfg.output_dir.join(init_dir.file_name().context("Invalid file name")?);
-                builder.sign_fragmented_files(&*signer, &p, &fragments, &new_output_path)?;
-            }
-            Ok(())
-        })
     }
 }

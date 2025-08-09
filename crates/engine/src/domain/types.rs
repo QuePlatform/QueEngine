@@ -75,6 +75,7 @@ pub struct C2paVerificationConfig {
     pub source: AssetRef, // Changed from PathBuf to AssetRef
     pub mode: VerifyMode,
     pub policy: Option<TrustPolicyConfig>,
+    pub allow_remote_manifests: bool,
 }
 
 /// Trust policy configuration, modeled after c2patool trust settings but
