@@ -2256,7 +2256,6 @@ dependencies = [
 name = "que-engine"
 version = "0.2.0"
 dependencies = [
- "anyhow",
  "c2pa",
  "glob",
  "once_cell",

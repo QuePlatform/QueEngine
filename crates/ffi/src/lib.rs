@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
 use que_engine::crypto::signer::Signer;
 use que_engine::crypto::timestamper::Timestamper;
 use que_engine::domain::types::{
     AssetRef, OutputTarget, C2paConfig, C2paVerificationConfig, SigAlg, VerifyMode,
 };
+use que_engine::domain::error::EngineError;
 use que_engine::{sign_c2pa, verify_c2pa};
 
 pub struct VerifyOptions {
@@ -20,16 +20,8 @@ pub struct FfiError {
     pub message: String,
 }
 
-impl From<anyhow::Error> for FfiError {
-    fn from(e: anyhow::Error) -> Self {
-        Self {
-            message: e.to_string(),
-        }
-    }
-}
-
-impl From<que_engine::domain::error::EngineError> for FfiError {
-    fn from(e: que_engine::domain::error::EngineError) -> Self {
+impl From<EngineError> for FfiError {
+    fn from(e: EngineError) -> Self {
         Self {
             message: e.to_string(),
         }

@@ -41,7 +41,7 @@ pub fn create_ingredient(cfg: IngredientConfig) -> EngineResult<Option<Vec<u8>>>
 
 /// Embed a manifest into fragmented BMFF assets (init + fragments) using glob patterns.
 #[cfg(all(feature = "c2pa", feature = "bmff"))]
-pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> Result<()> {
+pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> EngineResult<()> {
     adapters::c2pa::C2pa::generate_fragmented_bmff(cfg)
 }
 

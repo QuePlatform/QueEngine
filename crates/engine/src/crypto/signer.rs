@@ -1,11 +1,13 @@
+// crates/engine/src/crypto/signer.rs
+
 //! Signer abstraction for the engine.
 //! Today supports local files or env variables (dev). KMS/HSM/Enclave come next.
 
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anyhow::{Context, Result};
 use thiserror::Error;
+use crate::domain::error::{EngineError, EngineResult};
 
 #[derive(Debug, Error)]
 pub enum SignerError {
@@ -19,10 +21,12 @@ pub enum SignerError {
     EnvVarNotFound(String),
 }
 
-/// Source for a cryptographic keypair.
-/// Format examples:
-/// - local:/path/to/cert.pem,/path/to/private.pem
-/// - env:CERT_VAR,KEY_VAR
+impl From<SignerError> for EngineError {
+    fn from(e: SignerError) -> Self {
+        EngineError::Config(e.to_string())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Signer {
     Local { cert_path: PathBuf, key_path: PathBuf },
@@ -54,41 +58,27 @@ impl FromStr for Signer {
 }
 
 impl Signer {
-    /// Resolve into a c2pa signer (only available with the c2pa feature).
     #[cfg(feature = "c2pa")]
-    pub fn resolve(
-        &self,
-        alg: c2pa::SigningAlg,
-    ) -> Result<Box<dyn c2pa::Signer>> {
+    pub fn resolve(&self, alg: c2pa::SigningAlg) -> EngineResult<Box<dyn c2pa::Signer>> {
         match self {
-            Signer::Local {
-                cert_path,
-                key_path,
-            } => {
-                let signer = c2pa::create_signer::from_files(
-                    cert_path,
-                    key_path,
-                    alg,
-                    None,
-                )
-                .context("Failed to create signer from local files")?;
+            Signer::Local { cert_path, key_path } => {
+                let signer = c2pa::create_signer::from_files(cert_path, key_path, alg, None)
+                    .map_err(EngineError::C2pa)?;
                 Ok(signer)
             }
             Signer::Env { cert_var, key_var } => {
-                let cert_pem = std::env::var(cert_var).map_err(|_| {
-                    SignerError::EnvVarNotFound(cert_var.clone())
-                })?;
-                let key_pem = std::env::var(key_var).map_err(|_| {
-                    SignerError::EnvVarNotFound(key_var.clone())
-                })?;
+                let cert_pem = std::env::var(cert_var)
+                    .map_err(|_| SignerError::EnvVarNotFound(cert_var.clone()))?;
+                let key_pem = std::env::var(key_var)
+                    .map_err(|_| SignerError::EnvVarNotFound(key_var.clone()))?;
 
                 let signer = c2pa::create_signer::from_keys(
                     cert_pem.as_bytes(),
                     key_pem.as_bytes(),
                     alg,
                     None,
-                )
-                .context("Failed to create signer from environment variables")?;
+                ).map_err(EngineError::C2pa)?;
+                
                 Ok(signer)
             }
         }

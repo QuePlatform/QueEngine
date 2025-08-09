@@ -3,35 +3,32 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EngineError {
-    #[error("Configuration error: {0}")]
-    Config(String),
+  #[error("configuration: {0}")]
+  Config(String),
 
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+  #[error(transparent)]
+  Io(#[from] std::io::Error),
 
-    #[error("C2PA error: {0}")]
-    C2pa(String),
+  #[error(transparent)]
+  Json(#[from] serde_json::Error),
 
-    #[error("Verification failed")]
-    VerificationFailed,
+  #[cfg(feature = "bmff")]
+  #[error(transparent)]
+  Glob(#[from] glob::PatternError),
 
-    #[error("Feature not enabled: {0}")]
-    Feature(String),
-}
+  #[cfg(feature = "c2pa")]
+  #[error(transparent)]
+  C2pa(#[from] c2pa::Error),
 
-// Allow `?` on anyhow::Result
-impl From<anyhow::Error> for EngineError {
-    fn from(err: anyhow::Error) -> Self {
-        EngineError::C2pa(err.to_string())
-    }
-}
+  #[error("feature not enabled: {0}")]
+  Feature(&'static str),
 
-// Allow `?` on c2pa::Result
-#[cfg(feature = "c2pa")]
-impl From<c2pa::Error> for EngineError {
-    fn from(err: c2pa::Error) -> Self {
-        EngineError::C2pa(err.to_string())
-    }
+  #[error("verification failed")]
+  VerificationFailed,
+
+  // Useful when we catch_unwind to avoid crossing FFI boundaries with panics.
+  #[error("internal panic: {0}")]
+  Panic(String),
 }
 
 pub type EngineResult<T> = Result<T, EngineError>;
