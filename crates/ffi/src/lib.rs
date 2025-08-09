@@ -27,6 +27,15 @@ impl From<anyhow::Error> for FfiError {
         }
     }
 }
+
+impl From<que_engine::domain::error::EngineError> for FfiError {
+    fn from(e: que_engine::domain::error::EngineError) -> Self {
+        Self {
+            message: e.to_string(),
+        }
+    }
+}
+
 fn sign_file_c2pa(
     signer_spec: String,
     alg: String,

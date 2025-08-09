@@ -7,20 +7,20 @@ pub mod adapters;
 pub mod crypto;
 pub mod domain;
 
-use anyhow::Result;
+use domain::error::{EngineResult};
 use domain::types::{AssetRef, C2paConfig, C2paVerificationConfig, OutputTarget};
 
 /// High-level helpers for the common "C2PA default" path.
 /// Internally call the C2PA adapter. These give QueCloud a simple entrypoint.
 
-pub fn sign_c2pa(cfg: C2paConfig) -> Result<Option<Vec<u8>>> {
+pub fn sign_c2pa(cfg: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
     adapters::c2pa::C2pa::generate(cfg)
 }
 
 pub fn sign_c2pa_bytes(
     bytes: &[u8],
     mut cfg: C2paConfig,
-) -> Result<Vec<u8>> {
+) -> EngineResult<Vec<u8>> {
     cfg.source = AssetRef::Bytes {
         data: bytes.to_vec(),
         ext: None,
@@ -29,13 +29,13 @@ pub fn sign_c2pa_bytes(
     adapters::c2pa::C2pa::generate(cfg).map(|o| o.unwrap_or_default())
 }
 
-pub fn verify_c2pa(cfg: C2paVerificationConfig) -> Result<VerificationResult> {
+pub fn verify_c2pa(cfg: C2paVerificationConfig) -> EngineResult<VerificationResult> {
     adapters::c2pa::C2pa::verify(cfg)
 }
 
 /// Create an ingredient from an asset. If `output` is `Memory`, returns the serialized
 /// `ingredient.json` bytes. If `Path(dir)`, writes files to the folder.
-pub fn create_ingredient(cfg: IngredientConfig) -> Result<Option<Vec<u8>>> {
+pub fn create_ingredient(cfg: IngredientConfig) -> EngineResult<Option<Vec<u8>>> {
     adapters::c2pa::C2pa::create_ingredient(cfg)
 }
 

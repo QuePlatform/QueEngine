@@ -9,16 +9,16 @@ use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::sync::Mutex;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::crypto::timestamper::Timestamper;
 use crate::domain::manifest_engine::ManifestEngine;
+use crate::domain::error::{EngineError, EngineResult};
 use crate::domain::types::{
     AssetRef, C2paConfig, C2paVerificationConfig,
     IngredientConfig, OutputTarget, VerifyMode,
 };
-use crate::domain::verify::{
-    CertInfo, ValidationStatus, VerificationResult,
-};
+use crate::domain::verify::{CertInfo, ValidationStatus, VerificationResult, Verdict};
 
 static C2PA_SETTINGS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static BASE_SETTINGS: &str = r#"{}"#;
@@ -43,10 +43,20 @@ where
         .map_err(|_| anyhow::anyhow!("C2PA settings mutex poisoned"))?;
 
     apply_settings(settings).context("Failed to apply C2PA settings")?;
-    let res = f();
-    // Always restore the baseline after the operation, regardless of success or failure.
-    let _ = c2pa::settings::load_settings_from_str(BASE_SETTINGS, "json");
-    res
+
+    let result = catch_unwind(AssertUnwindSafe(|| f()));
+    // Always restore baseline
+    if let Err(e) =
+        c2pa::settings::load_settings_from_str(BASE_SETTINGS, "json")
+    {
+        // Optional: log this somewhere
+        let _ = e;
+    }
+
+    match result {
+        Ok(r) => r,
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
 }
 
 fn prepare_manifest_json(
@@ -107,10 +117,10 @@ impl ManifestEngine for C2pa {
     type VerificationConfig = C2paVerificationConfig;
     type Artifact = Option<Vec<u8>>;
 
-    fn generate(config: Self::Config) -> Result<Self::Artifact> {
+    fn generate(config: Self::Config) -> EngineResult<Self::Artifact> {
         #[cfg(not(feature = "c2pa"))]
         {
-            anyhow::bail!("C2PA feature not enabled");
+            return Err(EngineError::Feature("c2pa".into()));
         }
 
         #[cfg(feature = "c2pa")]
@@ -123,9 +133,10 @@ impl ManifestEngine for C2pa {
                 let manifest_json = prepare_manifest_json(
                     config.manifest_definition,
                     &config.timestamper,
-                )?;
+                ).map_err(|e| EngineError::Config(e.to_string()))?;
 
-                let mut builder = c2pa::Builder::from_json(&manifest_json)?;
+                let mut builder = c2pa::Builder::from_json(&manifest_json)
+                    .map_err(|e| EngineError::C2pa(e.to_string()))?;
 
                 if let Some(parent) = &config.parent {
                     let mut parent_ingredient = match parent {
@@ -163,18 +174,19 @@ impl ManifestEngine for C2pa {
                         let dir = tempfile::tempdir()?;
                         let out_path = dir.path().join("output_asset");
                         builder.sign_file(&*signer, &src_path, &out_path)?;
-                        let buf = std::fs::read(&out_path)?;
+                        let buf = std::fs::read(&out_path)
+                            .with_context(|| format!("Failed to read signed output at {}", out_path.display()))?;
                         Ok(Some(buf))
                     }
                 }
-            })
+            }).map_err(|e| EngineError::C2pa(e.to_string()))
         }
     }
 
-    fn verify(config: Self::VerificationConfig) -> Result<VerificationResult> {
+    fn verify(config: Self::VerificationConfig) -> EngineResult<VerificationResult> {
         #[cfg(not(feature = "c2pa"))]
         {
-            anyhow::bail!("C2PA feature not enabled");
+            return Err(EngineError::Feature("c2pa".into()));
         }
 
         #[cfg(feature = "c2pa")]
@@ -187,14 +199,22 @@ impl ManifestEngine for C2pa {
             if let Some(policy) = &config.policy {
                 let mut enable_trust = false;
                 if let Some(anchors) = &policy.anchors {
+                    let pem = String::from_utf8_lossy(anchors);
                     settings.push(serde_json::json!({
-                        "trust": { "trust_anchors": String::from_utf8_lossy(anchors) }
+                        "trust": {
+                            "trust_anchors": pem,         // inline content
+                            "trust_anchors_path": null    // ensure we don't unintentionally point at disk
+                        }
                     }));
                     enable_trust = true;
                 }
                 if let Some(allowed) = &policy.allowed_list {
+                    let pem = String::from_utf8_lossy(allowed);
                     settings.push(serde_json::json!({
-                        "trust": { "allowed_list": String::from_utf8_lossy(allowed) }
+                        "trust": {
+                            "allowed_list": pem,          // inline content
+                            "allowed_list_path": null
+                        }
                     }));
                     enable_trust = true;
                 }
@@ -209,9 +229,13 @@ impl ManifestEngine for C2pa {
                 }));
             }
 
+            
             with_c2pa_settings(&settings, || {
-                let (src_path, _tmp_dir) = asset_to_temp_path(&config.source)?;
-                let reader = Reader::from_file(&src_path)?;
+                let (src_path, _tmp_dir) = asset_to_temp_path(&config.source)
+                    .map_err(|e| EngineError::C2pa(e.to_string()))?;
+
+                let reader = Reader::from_file(&src_path)
+                    .map_err(|e| EngineError::C2pa(e.to_string()))?;
 
                 let report_str = match config.mode {
                     VerifyMode::Detailed => format!("{:?}", reader),
@@ -238,7 +262,7 @@ impl ManifestEngine for C2pa {
                         }]
                     });
 
-                let status = reader.validation_status().map(|arr| {
+                let status_vec = reader.validation_status().map(|arr| {
                     arr.iter()
                         .map(|s| ValidationStatus {
                             code: s.code().to_string(),
@@ -247,14 +271,30 @@ impl ManifestEngine for C2pa {
                             ingredient_uri: s.ingredient_uri().map(|i| i.to_string()),
                             passed: s.passed(),
                         })
-                        .collect()
+                        .collect::<Vec<_>>()
                 });
 
-                Ok(VerificationResult { report: report_str, certificates, status })
+                let verdict = status_vec.as_ref().map(|statuses| {
+                    if statuses.iter().any(|s| !s.passed) {
+                        Verdict::Rejected
+                    } else if statuses.iter().any(|s| s.code.contains("warning")) {
+                        Verdict::Warning
+                    } else {
+                        Verdict::Allowed
+                    }
+                });
+
+                Ok(VerificationResult {
+                    report: report_str,
+                    certificates,
+                    status: status_vec,
+                    verdict,
+                })
             })
-        }
-    }
-}
+            .map_err(|e| EngineError::C2pa(e.to_string()))
+	        }
+	    }
+	}
 
 impl C2pa {
     #[cfg(all(feature = "c2pa", feature = "bmff"))]
@@ -335,7 +375,7 @@ impl C2pa {
     /// If `output` is `OutputTarget::Memory`, returns the serialized `ingredient.json` bytes.
     /// If `OutputTarget::Path(dir)`, writes files to the folder.
     #[cfg(feature = "c2pa")]
-    pub fn create_ingredient(config: IngredientConfig) -> Result<Option<Vec<u8>>> {
+    pub fn create_ingredient(config: IngredientConfig) -> EngineResult<Option<Vec<u8>>> {
         let (source_path, _temp_dir) = asset_to_temp_path(&config.source)?;
 
         match config.output {

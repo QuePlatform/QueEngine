@@ -23,7 +23,11 @@ pub struct VerificationResult {
     pub certificates: Option<Vec<CertInfo>>,
     /// Structured validation statuses mapped from c2pa validation results.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<Vec<ValidationStatus>>,    
+    pub status: Option<Vec<ValidationStatus>>,   
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<Verdict>,
+
 }
 
 /// Structured validation status entry.
@@ -34,4 +38,11 @@ pub struct ValidationStatus {
     pub explanation: Option<String>,
     pub ingredient_uri: Option<String>,
     pub passed: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub enum Verdict {
+    Allowed,
+    Warning,
+    Rejected,
 }
