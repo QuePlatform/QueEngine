@@ -21,7 +21,10 @@ pub fn sign_c2pa_bytes(
     bytes: &[u8],
     mut cfg: C2paConfig,
 ) -> Result<Vec<u8>> {
-    cfg.source = AssetRef::Bytes(bytes.to_vec());
+    cfg.source = AssetRef::Bytes {
+        data: bytes.to_vec(),
+        ext: None,
+    };    
     cfg.output = OutputTarget::Memory;
     adapters::c2pa::C2pa::generate(cfg).map(|o| o.unwrap_or_default())
 }

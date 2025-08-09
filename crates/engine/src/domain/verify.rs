@@ -9,8 +9,8 @@ pub struct CertInfo {
     pub cert_serial_number: Option<String>,
     pub time: Option<String>,
     pub revocation_status: Option<bool>,
-    /// Certificate chain bytes. Content format depends on SDK; consumers should parse.
-    pub cert_chain: Option<Vec<u8>>,
+    /// The full certificate chain in PEM format.
+    pub chain_pem: Option<String>,
 }
 
 /// Generic verification result. For now, a string report like c2pa::Reader

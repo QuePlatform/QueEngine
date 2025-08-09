@@ -2259,6 +2259,7 @@ dependencies = [
  "anyhow",
  "c2pa",
  "glob",
+ "once_cell",
  "openssl",
  "serde",
  "serde_json",

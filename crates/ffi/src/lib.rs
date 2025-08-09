@@ -27,7 +27,6 @@ impl From<anyhow::Error> for FfiError {
         }
     }
 }
-
 fn sign_file_c2pa(
     signer_spec: String,
     alg: String,
@@ -73,6 +72,7 @@ fn sign_file_c2pa(
         output: OutputTarget::Path(PathBuf::from(dest_path)),
         manifest_definition: manifest_json,
         parent: parent_path.map(|p| AssetRef::Path(PathBuf::from(p))),
+        parent_base_dir: None, // NEW FIELD — set to None for FFI
         signer,
         signing_alg: alg,
         timestamper: tsa,
@@ -96,7 +96,7 @@ fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<String, 
     };
 
     let cfg = C2paVerificationConfig {
-        source_path: PathBuf::from(source_path),
+        source: AssetRef::Path(PathBuf::from(source_path)), // CHANGED: use `source` instead of `source_path`
         mode,
         policy: None,
     };
