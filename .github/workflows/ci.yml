@@ -10,3 +10,14 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --all-features
+
+name: Forbid incompatible features
+run: |
+  set -e
+  if [[ "${PROFILE}" == "server" ]]; then
+    cargo check --no-default-features --features "c2pa,openssl,kms,cloudhsm"
+  elif [[ "${PROFILE}" == "device" ]]; then
+    cargo check --no-default-features --features "c2pa,openssl,enclave"
+  elif [[ "${PROFILE}" == "dev" ]]; then
+    cargo check --features "c2pa,openssl,local"
+  fi

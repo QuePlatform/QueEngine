@@ -4,7 +4,7 @@ use anyhow::Result;
 use que_engine::crypto::signer::Signer;
 use que_engine::crypto::timestamper::Timestamper;
 use que_engine::domain::types::{
-    C2paConfig, C2paVerificationConfig, SigAlg, VerifyMode,
+    AssetRef, OutputTarget, C2paConfig, C2paVerificationConfig, SigAlg, VerifyMode,
 };
 use que_engine::{sign_c2pa, verify_c2pa};
 
@@ -69,8 +69,8 @@ fn sign_file_c2pa(
     };
 
     let cfg = C2paConfig {
-        source_path: PathBuf::from(source_path),
-        dest_path: PathBuf::from(dest_path),
+        source: AssetRef::Path(PathBuf::from(source_path)),
+        output: OutputTarget::Path(PathBuf::from(dest_path)),
         manifest_definition: manifest_json,
         parent_path: parent_path.map(PathBuf::from),
         signer,
@@ -80,7 +80,7 @@ fn sign_file_c2pa(
         embed,
     };
 
-    sign_c2pa(cfg).map_err(FfiError::from)
+    sign_c2pa(cfg).map(|_| ()).map_err(FfiError::from)
 }
 
 fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<String, FfiError> {

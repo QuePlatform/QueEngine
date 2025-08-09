@@ -1,5 +1,6 @@
-use anyhow::Result;
+// crates/engine/src/domain/manifest_engine.rs
 
+use anyhow::Result;
 use super::verify::VerificationResult;
 
 /// Trait implemented by provenance backends (C2PA today, others later).

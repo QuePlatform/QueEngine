@@ -2,14 +2,12 @@
 
 use std::path::PathBuf;
 
-use crate::crypto::{signer::Signer, timestamper::Timestamper};
-
 /// Supported signature algorithms for the engine. Mapped to c2pa internally.
 #[derive(Debug, Clone, Copy)]
 pub enum SigAlg {
     Es256,
     Es384,
-    Ps256, 
+    Ps256,
     Ed25519,
 }
 
@@ -19,7 +17,7 @@ impl SigAlg {
         match self {
             SigAlg::Es256 => c2pa::SigningAlg::Es256,
             SigAlg::Es384 => c2pa::SigningAlg::Es384,
-            SigAlg::Ps256 => c2pa::SigningAlg::Ps256, 
+            SigAlg::Ps256 => c2pa::SigningAlg::Ps256,
             SigAlg::Ed25519 => c2pa::SigningAlg::Ed25519,
         }
     }
@@ -34,16 +32,30 @@ pub enum VerifyMode {
     Tree,
 }
 
-/// Configuration for C2PA generation (kept explicit for clarity).
+/// A reference to an asset, which can be either a path or in-memory bytes.
+#[derive(Debug, Clone)]
+pub enum AssetRef {
+    Path(PathBuf),
+    Bytes(Vec<u8>), // Use an owned Vec<u8> to avoid lifetimes
+}
+
+/// A target for the output of a generation operation.
+#[derive(Debug, Clone)]
+pub enum OutputTarget {
+    Path(PathBuf),
+    Memory, // return Vec<u8> from adapter
+}
+
+/// Configuration for C2PA generation.
 #[derive(Debug, Clone)]
 pub struct C2paConfig {
-    pub source_path: PathBuf,
-    pub dest_path: PathBuf,
+    pub source: AssetRef,
+    pub output: OutputTarget,
     pub manifest_definition: Option<String>,
     pub parent_path: Option<PathBuf>,
-    pub signer: Signer,
+    pub signer: crate::crypto::signer::Signer,
     pub signing_alg: SigAlg,
-    pub timestamper: Option<Timestamper>,
+    pub timestamper: Option<crate::crypto::timestamper::Timestamper>,
     pub remote_manifest_url: Option<String>,
     pub embed: bool,
 }

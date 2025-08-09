@@ -30,3 +30,4 @@ c2pa = { version = "0.57", optional = true, features = [
   "openssl",
 ] }
 openssl = { version = "0.10", optional = true }
+tempfile = "3.15.0"
