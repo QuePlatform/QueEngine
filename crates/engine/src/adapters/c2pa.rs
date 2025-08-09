@@ -353,3 +353,17 @@ impl C2pa {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::error::EngineError;
+
+    #[test]
+    fn with_c2pa_settings_catches_panics() {
+        let res = super::with_c2pa_settings(&[], || -> EngineResult<()> {
+            panic!("boom");
+        });
+        assert!(matches!(res, Err(EngineError::Panic(_))));
+    }
+}

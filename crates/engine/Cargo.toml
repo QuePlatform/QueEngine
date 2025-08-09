@@ -36,3 +36,9 @@ c2pa = { version = "0.57", optional = true, features = [
 openssl = { version = "0.10", optional = true }
 tempfile = "3.15.0"
 glob = { version = "0.3", optional = true } 
+
+[dev-dependencies]
+rcgen = { version = "0.12", features = ["pem"] }
+tempfile = "3.15"
+serde_json = "1"
+image = "0.24"

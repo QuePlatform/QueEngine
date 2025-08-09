@@ -8,7 +8,7 @@ pub mod crypto;
 pub mod domain;
 
 use domain::error::{EngineResult};
-use domain::types::{AssetRef, C2paConfig, C2paVerificationConfig, OutputTarget};
+pub use domain::types::{AssetRef, C2paConfig, C2paVerificationConfig, OutputTarget};
 
 /// High-level helpers for the common "C2PA default" path.
 /// Internally call the C2PA adapter. These give QueCloud a simple entrypoint.
