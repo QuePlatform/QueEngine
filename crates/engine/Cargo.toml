@@ -1,0 +1,32 @@
+[package]
+name = "que-engine"
+version = "0.2.0"
+edition = "2021"
+license = "BUSL-1.1"
+description = "Que provenance engine (C2PA adapter, feature-gated signers)"
+
+[features]
+default  = ["c2pa", "openssl"]
+c2pa     = ["dep:c2pa"]
+openssl  = ["dep:openssl"]
+local    = []            # dev signer (from files/env)
+kms      = []            # server-side signer (QueCloud)
+cloudhsm = []            # server-side signer (QueCloud)
+enclave  = []            # on-device signer
+wasm     = []            # optional future WASM build
+ffi      = []            # when building with the ffi crate
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+url = "2.5"
+
+# Optional deps hidden behind features
+c2pa = { version = "0.57", optional = true, features = [
+  "file_io",
+  "add_thumbnails",
+  "openssl",
+] }
+openssl = { version = "0.10", optional = true }

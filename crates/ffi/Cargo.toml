@@ -1,0 +1,17 @@
+[package]
+name = "que-engine-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+que-engine = { path = "../engine", features = ["ffi", "c2pa", "openssl"] }
+uniffi = { version = "0.28", features = ["cli"] }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
