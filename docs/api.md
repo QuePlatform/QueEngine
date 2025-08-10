@@ -1,33 +1,102 @@
 # API Reference
 
-Types
-- SigAlg: Es256 | Es384 | Ps256 | Ed25519
-- VerifyMode: Summary | Info | Detailed | Tree
-- AssetRef: Path(PathBuf) | Bytes { data: Vec<u8>, ext: Option<String> }
-- OutputTarget: Path(PathBuf) | Memory
+This document details the public functions exposed by the `que-engine` crate.
 
-Generate
-- sign_c2pa(C2paConfig) -> Result<Option<Vec<u8>>>
-  - Returns Some(bytes) for Memory output
-  - Returns None for Path output
+## Error Handling
 
-Verify
-- verify_c2pa(C2paVerificationConfig) -> Result<VerificationResult>
-  - VerificationResult:
-    - report: String (human-readable summary, same shape as c2patool outputs)
-    - certificates: Optional<Vec<CertInfo>>
-    - status: Optional<Vec<ValidationStatus>>
-    - verdict: Optional<Verdict> (Allowed | Warning | Rejected)
+All public functions return an `EngineResult<T>`, which is an alias for:
+```rust
+Result<T, EngineError>
+```
 
-Ingredients
-- create_ingredient(IngredientConfig) -> Result<Option<Vec<u8>>>
-  - Memory => Some(bytes)
-  - Path(dir) => None, writes folder + ingredient.json
+### EngineError
+```rust
+pub enum EngineError {
+  Config(String),
+  Io(std::io::Error),
+  Json(serde_json::Error),
+  Glob(glob::PatternError), // bmff feature
+  C2pa(c2pa::Error),       // c2pa feature
+  Feature(&'static str),
+  VerificationFailed,
+  Panic(String),
+}
+```
 
-BMFF (feature: bmff)
-- generate_fragmented_bmff(FragmentedBmffConfig) -> Result<()>
+---
 
-Assumptions
-- C2PA SDK’s global settings are per-process. QueEngine uses a global lock and resets to a baseline after each call that mutates settings.
-- Verification trust is opt-in via `TrustPolicyConfig`. Without it, structural verification will not assert CA trust.
-- When using `AssetRef::Bytes`, provide `ext` when you care about media-specific handlers (png, jpg, mp4).
+## Core Functions
+
+### `sign_c2pa`
+Signs a digital asset with a C2PA manifest.
+
+```rust
+pub fn sign_c2pa(cfg: C2paConfig) -> EngineResult<Option<Vec<u8>>>
+```
+
+**Example:**
+```rust
+use que_engine::{sign_c2pa, C2paConfig, AssetRef, OutputTarget, Signer, SigAlg};
+use std::path::PathBuf;
+use std::str::FromStr;
+
+let config = C2paConfig {
+    source: AssetRef::Path(PathBuf::from("image.jpg")),
+    output: OutputTarget::Path(PathBuf::from("signed.jpg")),
+    manifest_definition: Some(r#"{"title": "My Test Image"}"#.to_string()),
+    signer: Signer::from_str("local:cert.pem,key.pem").unwrap(),
+    signing_alg: SigAlg::Ps256,
+    embed: true,
+    parent: None,
+    parent_base_dir: None,
+    timestamper: None,
+    remote_manifest_url: None,
+    skip_post_sign_validation: false,
+};
+
+sign_c2pa(config).unwrap();
+```
+
+---
+
+### `verify_c2pa`
+Verifies the C2PA provenance of a digital asset.
+
+```rust
+pub fn verify_c2pa(cfg: C2paVerificationConfig) -> EngineResult<VerificationResult>
+```
+
+**Example:**
+```rust
+use que_engine::{verify_c2pa, C2paVerificationConfig, AssetRef, VerifyMode, TrustPolicyConfig};
+use std::path::PathBuf;
+
+let config = C2paVerificationConfig {
+    source: AssetRef::Path(PathBuf::from("signed.jpg")),
+    mode: VerifyMode::Detailed,
+    allow_remote_manifests: true,
+    policy: Some(TrustPolicyConfig::default()),
+};
+
+let result = verify_c2pa(config).unwrap();
+println!("{}", result.report);
+```
+
+---
+
+### `create_ingredient`
+Creates a C2PA Ingredient from an asset.
+
+```rust
+pub fn create_ingredient(cfg: IngredientConfig) -> EngineResult<Option<Vec<u8>>>
+```
+
+---
+
+### `generate_fragmented_bmff`
+Signs fragmented BMFF content (e.g., fMP4 video).
+
+```rust
+#[cfg(all(feature = "c2pa", feature = "bmff"))]
+pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> EngineResult<()>
+```
