@@ -1,0 +1,18 @@
+# Ignore Rust build artifacts
+target
+**/target
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore local env files
+.env
+**/.env
+
+# Ignore OS cruft
+.DS_Store
+
+# Ignore IDE/editor junk
+.vscode
+.idea
