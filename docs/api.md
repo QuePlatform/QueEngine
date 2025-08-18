@@ -51,10 +51,29 @@ let config = C2paConfig {
     parent_base_dir: None,
     timestamper: None,
     remote_manifest_url: None,
+    trust_policy: None, // optional: mirrors verify trust options (anchors, allowed list, EKUs)
     skip_post_sign_validation: false,
 };
 
 sign_c2pa(config).unwrap();
+```
+
+**Example with built-in test signer:**
+```rust
+let config = C2paConfig {
+    source: AssetRef::Path(PathBuf::from("image.jpg")),
+    output: OutputTarget::Path(PathBuf::from("signed.jpg")),
+    manifest_definition: Some(r#"{"title": "My Test Image"}"#.to_string()),
+    signer: Signer::from_str("builtin:es256").unwrap(), // Uses bundled test certificates
+    signing_alg: SigAlg::Es256, // Must match the built-in signer algorithm
+    embed: true,
+    parent: None,
+    parent_base_dir: None,
+    timestamper: None,
+    remote_manifest_url: None,
+    trust_policy: None,
+    skip_post_sign_validation: false,
+};
 ```
 
 ---

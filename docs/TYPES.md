@@ -27,8 +27,19 @@ Specifies the source of the cryptographic key and certificate.
 pub enum Signer {
     Local { cert_path: PathBuf, key_path: PathBuf },
     Env { cert_var: String, key_var: String },
+    /// Built-in ES256 test signer that uses engine-bundled PEMs.
+    /// Note: This uses test certificates and should be replaced with real certificates in production.
+    BuiltinEs256,
 }
 ```
+
+### Built-in Test Signer
+
+The `BuiltinEs256` signer variant uses test certificates bundled with the engine:
+- `crates/engine/es256_certs.pem` - Test certificate chain
+- `crates/engine/es256_private.key` - Test private key
+
+**Important:** These are test certificates and should not be used in production. In the future, this will need to be replaced with real, properly signed certificates that meet production security requirements.
 
 ## Timestamper
 Specifies the RFC 3161 Timestamp Authority (TSA) to use.

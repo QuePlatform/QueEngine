@@ -3,3 +3,8 @@ bindings
 .DS_Store
 */.DS_Store
 *.pem
+c2pa-rs/
+
+# Keep test certs because they are public
+!es256_certs.pem
+!es256_private.key

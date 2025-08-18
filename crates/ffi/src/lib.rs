@@ -79,6 +79,7 @@ fn sign_file_c2pa(
         timestamper: tsa,
         remote_manifest_url,
         embed,
+        trust_policy: None,
         skip_post_sign_validation: false,
     };
 

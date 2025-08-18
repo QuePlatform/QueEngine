@@ -66,6 +66,9 @@ pub struct C2paConfig {
     pub timestamper: Option<crate::crypto::timestamper::Timestamper>,
     pub remote_manifest_url: Option<String>,
     pub embed: bool,
+    /// Optional trust policy to apply when verifying immediately after signing.
+    /// Mirrors options supported by the verify API.
+    pub trust_policy: Option<TrustPolicyConfig>,
     pub skip_post_sign_validation: bool,
 }
 

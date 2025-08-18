@@ -31,6 +31,8 @@ impl From<SignerError> for EngineError {
 pub enum Signer {
     Local { cert_path: PathBuf, key_path: PathBuf },
     Env { cert_var: String, key_var: String },
+    /// Built-in ES256 test signer that uses engine-bundled PEMs.
+    BuiltinEs256,
 }
 
 impl FromStr for Signer {
@@ -38,19 +40,36 @@ impl FromStr for Signer {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (scheme, value) = s.split_once(':').ok_or(SignerError::InvalidScheme)?;
-        let parts: Vec<&str> = value.split(',').collect();
-        if parts.len() != 2 {
-            return Err(SignerError::InvalidScheme);
-        }
-
         match scheme {
+            "builtin" => {
+                // format: builtin:es256
+                if value.eq_ignore_ascii_case("es256") {
+                    Ok(Signer::BuiltinEs256)
+                } else {
+                    Err(SignerError::InvalidScheme)
+                }
+            }
             "local" => Ok(Signer::Local {
-                cert_path: PathBuf::from(parts[0]),
-                key_path: PathBuf::from(parts[1]),
+                cert_path: {
+                    let parts: Vec<&str> = value.split(',').collect();
+                    if parts.len() != 2 { return Err(SignerError::InvalidScheme); }
+                    PathBuf::from(parts[0])
+                },
+                key_path: {
+                    let parts: Vec<&str> = value.split(',').collect();
+                    PathBuf::from(parts[1])
+                },
             }),
             "env" => Ok(Signer::Env {
-                cert_var: parts[0].to_string(),
-                key_var: parts[1].to_string(),
+                cert_var: {
+                    let parts: Vec<&str> = value.split(',').collect();
+                    if parts.len() != 2 { return Err(SignerError::InvalidScheme); }
+                    parts[0].to_string()
+                },
+                key_var: {
+                    let parts: Vec<&str> = value.split(',').collect();
+                    parts[1].to_string()
+                },
             }),
             _ => Err(SignerError::InvalidScheme),
         }
@@ -79,6 +98,22 @@ impl Signer {
                     None,
                 ).map_err(EngineError::C2pa)?;
                 
+                Ok(signer)
+            }
+            Signer::BuiltinEs256 => {
+                // Load PEMs from crate directory at runtime to avoid build-time include issues.
+                let crate_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                let cert_path = crate_dir.join("es256_certs.pem");
+                let key_path = crate_dir.join("es256_private.key");
+                if !cert_path.exists() || !key_path.exists() {
+                    return Err(EngineError::Config(format!(
+                        "Built-in ES256 PEMs not found at {} and {}",
+                        cert_path.display(),
+                        key_path.display()
+                    )));
+                }
+                let signer = c2pa::create_signer::from_files(&cert_path, &key_path, alg, None)
+                    .map_err(EngineError::C2pa)?;
                 Ok(signer)
             }
         }

@@ -117,9 +117,37 @@ impl ManifestEngine for C2pa {
     }
     #[cfg(feature = "c2pa")]
     {
-      let settings = vec![serde_json::json!({
+      let mut settings = vec![serde_json::json!({
         "verify": { "verify_after_sign": !config.skip_post_sign_validation }
       })];
+
+      // If trust policy is provided, mirror the same trust settings used by verify().
+      if let Some(policy) = &config.trust_policy {
+        let mut enable_trust = false;
+        if let Some(anchors) = &policy.anchors {
+          let pem = String::from_utf8_lossy(anchors);
+          settings.push(serde_json::json!({
+            "trust": { "trust_anchors": pem, "trust_anchors_path": null }
+          }));
+          enable_trust = true;
+        }
+        if let Some(allowed) = &policy.allowed_list {
+          let pem = String::from_utf8_lossy(allowed);
+          settings.push(serde_json::json!({
+            "trust": { "allowed_list": pem, "allowed_list_path": null }
+          }));
+          enable_trust = true;
+        }
+        if let Some(ekus) = &policy.allowed_ekus {
+          settings.push(serde_json::json!({
+            "trust": { "trust_config": { "ekus": ekus } }
+          }));
+          enable_trust = true;
+        }
+        settings.push(serde_json::json!({
+          "verify": { "verify_trust": enable_trust }
+        }));
+      }
 
       with_c2pa_settings(&settings, || {
         let manifest_json = prepare_manifest_json(
