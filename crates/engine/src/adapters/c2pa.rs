@@ -163,7 +163,13 @@ impl ManifestEngine for C2pa {
           }
           OutputTarget::Memory => {
             let dir = tempfile::tempdir()?;
-            let out_path = dir.path().join("output_asset");
+             // Preserve the source file extension for the output so the c2pa
+            // library can determine the correct handler (e.g., jpeg, png, etc.).
+            let out_filename = match src_path.extension().and_then(|e| e.to_str()) {
+              Some(ext_str) if !ext_str.is_empty() => format!("output_asset.{ext_str}"),
+              _ => "output_asset".to_string(),
+            };
+            let out_path = dir.path().join(out_filename);
             builder.sign_file(&*signer, &src_path, &out_path)?;
             let buf = std::fs::read(&out_path)?;
             Ok(Some(buf))
