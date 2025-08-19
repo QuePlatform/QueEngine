@@ -104,7 +104,7 @@ impl Signer {
                 // Load PEMs from crate directory at runtime to avoid build-time include issues.
                 let crate_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
                 let cert_path = crate_dir.join("es256_certs.pem");
-                let key_path = crate_dir.join("es256_private.key");
+                let key_path = crate_dir.join("es256_private.pem");
                 if !cert_path.exists() || !key_path.exists() {
                     return Err(EngineError::Config(format!(
                         "Built-in ES256 PEMs not found at {} and {}",

@@ -95,7 +95,20 @@ fn asset_to_temp_path(
       let filename = ext
         .as_deref()
         .map(|e| format!("asset.{e}"))
-        .unwrap_or_else(|| "asset".to_string());
+        .unwrap_or_else(|| {
+          // Infer extension from file content when none provided
+          if data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
+            "asset.jpg".to_string()
+          } else if data.len() >= 8 && data[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A] {
+            "asset.png".to_string()
+          } else if data.len() >= 4 && data[..4] == [0x52, 0x49, 0x46, 0x46] && data.len() >= 12 && data[8..12] == [0x57, 0x45, 0x42, 0x50] {
+            "asset.webp".to_string()
+          } else if data.len() >= 4 && data[..4] == [0x00, 0x00, 0x00, 0x18] && data.len() >= 8 && data[4..8] == [0x66, 0x74, 0x79, 0x70] {
+            "asset.mp4".to_string()
+          } else {
+            "asset".to_string() // fallback to no extension
+          }
+        });
       let path = dir.path().join(filename);
       std::fs::write(&path, data)?;
       Ok((path, Some(dir)))

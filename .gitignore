@@ -7,4 +7,4 @@ c2pa-rs/
 
 # Keep test certs because they are public
 !es256_certs.pem
-!es256_private.key
+!es256_private.pem
