@@ -13,10 +13,10 @@ Result<T, EngineError>
 ```rust
 pub enum EngineError {
   Config(String),
-  Io(std::io::Error),
-  Json(serde_json::Error),
-  Glob(glob::PatternError), // bmff feature
-  C2pa(c2pa::Error),       // c2pa feature
+  Io(#[from] std::io::Error),
+  Json(#[from] serde_json::Error),
+  Glob(#[from] glob::PatternError),
+  C2pa(#[from] c2pa::Error),
   Feature(&'static str),
   VerificationFailed,
   Panic(String),
@@ -51,7 +51,7 @@ let config = C2paConfig {
     parent_base_dir: None,
     timestamper: None,
     remote_manifest_url: None,
-    trust_policy: None, // optional: mirrors verify trust options (anchors, allowed list, EKUs)
+    trust_policy: None, 
     skip_post_sign_validation: false,
 };
 

@@ -41,16 +41,17 @@ See the **Feature Flags** section for a complete list.
 
 Add QueEngine to your project's `Cargo.toml`.
 
-**For standard use (e.g., in QueCloud):**
+Currently, we have not figured out a way to import the github repository QueEngine because it is private. QueCloud references the repository directly since it is on the same machine
+
 ```toml
 [dependencies]
-que-engine = { git = "https://github.com/QuePlatform/QueEngine.git", tag = "v0.2.0" }
+que-engine = { path = "../Engine/crates/engine" }
 ```
 
 **To include support for fragmented BMFF (MP4) files:**
 ```toml
 [dependencies]
-que-engine = { git = "https://github.com/QuePlatform/QueEngine.git", tag = "v0.2.0", features = ["bmff"] }
+que-engine = { path = "../Engine/crates/engine", features = ["bmff"] }
 ```
 
 ## 3. Next Steps
