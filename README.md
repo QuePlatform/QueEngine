@@ -58,3 +58,46 @@ que-engine = { path = "../Engine/crates/engine", features = ["bmff"] }
 
 - **[API Reference](./docs/API.md):** Explore the public functions available in the engine.
 - **[Data Structures](./docs/TYPES.md):** Understand the configuration and result types used by the API.
+
+---
+
+## 4. CI/CD
+
+QueEngine uses **GitHub Actions** to enforce that FFI bindings (Swift/Kotlin) are always up-to-date when a release is tagged.
+
+### Why?
+The `que-ffi` crate generates Swift and Kotlin bindings from the Rust FFI layer. If these bindings are not regenerated before a release, the published SDKs may be out of sync with the engine code. This can cause runtime errors or missing functionality.
+
+### How It Works
+- A workflow (`.github/workflows/release-check.yml`) runs **only on tag pushes** (e.g., `v1.2.0`).
+- It:
+  1. Builds the project in release mode.
+  2. Runs the `build.sh` script to regenerate Swift/Kotlin bindings.
+  3. Fails if the repository is “dirty” (i.e., if bindings changed but were not committed).
+
+### Developer Workflow
+1. Before tagging a release, always run:
+
+   ```bash
+   ./build.sh
+   git add bindings/
+   git commit -m "chore: update FFI bindings"
+   ```
+
+2. Tag and push the release:
+
+   ```bash
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+3. If bindings were not updated, the CI job will fail with:
+
+   ```
+   ❌ Bindings are out of date for this release tag.
+   Run ./build.sh locally, commit the changes, and re-tag the release.
+   ```
+
+This ensures that **every release ships with correct, up-to-date FFI bindings**.
+
+---

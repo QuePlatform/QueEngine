@@ -4,7 +4,6 @@ bindings
 */.DS_Store
 *.pem
 c2pa-rs/
-.github/
 
 # Keep test certs because they are public
 !es256_certs.pem

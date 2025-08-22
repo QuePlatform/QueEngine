@@ -1,0 +1,60 @@
+name: Release Check
+
+on:
+  push:
+    tags:
+      - "v*" # runs only when pushing tags like v1.0.0, v2.3.4, etc.
+
+jobs:
+  check-bindings:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # important so tags are available
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev
+
+      # Install cargo-chef
+      - name: Install cargo-chef
+        run: cargo install cargo-chef --locked
+
+      # Step 1: Prepare recipe.json (dependency graph)
+      - name: Prepare recipe
+        run: cargo chef prepare --recipe-path recipe.json
+
+      # Step 2: Cache dependencies build
+      - name: Cache cargo chef
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-chef-${{ hashFiles('recipe.json') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-chef-
+
+      # Step 3: Build dependencies only
+      - name: Build dependencies
+        run: cargo chef cook --release --recipe-path recipe.json
+
+      # Step 4: Build project + regenerate bindings
+      - name: Build and regenerate bindings
+        run: |
+          chmod +x ./build.sh
+          ./build.sh
+
+      # Step 5: Check for uncommitted changes
+      - name: Check for uncommitted changes
+        run: |
+          if ! git diff --exit-code; then
+            echo "❌ Bindings are out of date for this release tag."
+            echo "Run ./build.sh locally, commit the changes, and re-tag the release."
+            exit 1
+          fi

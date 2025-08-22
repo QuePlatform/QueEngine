@@ -137,3 +137,24 @@ pub enum Timestamper {
     Custom(String),
 }
 ```
+
+## EngineError
+Represents errors that can occur during engine operations.
+```rust
+pub enum EngineError {
+    Config(String),
+    Io(#[from] std::io::Error),
+    Json(#[from] serde_json::Error),
+    Glob(#[from] glob::PatternError),
+    C2pa(#[from] c2pa::Error),
+    Feature(&'static str),
+    VerificationFailed,
+    Panic(String),
+}
+```
+
+## EngineResult
+Type alias for results returned by engine functions.
+```rust
+pub type EngineResult<T> = Result<T, EngineError>;
+```
