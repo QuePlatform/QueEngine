@@ -27,7 +27,10 @@ pub fn sign_c2pa_bytes(
         ext: None,
     };    
     cfg.output = OutputTarget::Memory;
-    adapters::c2pa::C2pa::generate(cfg).map(|o| o.unwrap_or_default())
+    match adapters::c2pa::C2pa::generate(cfg)? {
+        Some(buf) => Ok(buf),
+        None => Err(EngineError::Config("memory output expected but none produced".into())),
+    }
 }
 
 pub fn verify_c2pa(cfg: C2paVerificationConfig) -> EngineResult<VerificationResult> {

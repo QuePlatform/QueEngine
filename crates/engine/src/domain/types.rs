@@ -70,6 +70,8 @@ pub struct C2paConfig {
     /// Mirrors options supported by the verify API.
     pub trust_policy: Option<TrustPolicyConfig>,
     pub skip_post_sign_validation: bool,
+    /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
+    pub allow_insecure_remote_http: Option<bool>,
 }
 
 /// Configuration for C2PA verification.
@@ -79,6 +81,8 @@ pub struct C2paVerificationConfig {
     pub mode: VerifyMode,
     pub policy: Option<TrustPolicyConfig>,
     pub allow_remote_manifests: bool,
+    /// Opt-in: include signing certificates in result
+    pub include_certificates: Option<bool>,
 }
 
 /// Trust policy configuration, modeled after c2patool trust settings but
@@ -91,6 +95,55 @@ pub struct TrustPolicyConfig {
     pub allowed_list: Option<Vec<u8>>,
     /// Allowed EKUs in OID dot notation
     pub allowed_ekus: Option<Vec<String>>,
+
+    /// Enable trust checks for identity assertions (c2pa >= 0.59)
+    pub verify_identity_trust: Option<bool>,
+}
+
+impl Default for C2paVerificationConfig {
+    fn default() -> Self {
+        Self {
+            source: AssetRef::Path(PathBuf::new()),
+            mode: VerifyMode::Summary,
+            policy: None,
+            allow_remote_manifests: false,
+            include_certificates: None,
+        }
+    }
+}
+
+impl C2paConfig {
+    /// Secure opinionated defaults; caller supplies source and signer.
+    pub fn secure_default(source: AssetRef, signer: crate::crypto::signer::Signer, signing_alg: SigAlg) -> Self {
+        Self {
+            source,
+            output: OutputTarget::Memory,
+            manifest_definition: None,
+            parent: None,
+            parent_base_dir: None,
+            signer,
+            signing_alg,
+            timestamper: None,
+            remote_manifest_url: None,
+            embed: true,
+            trust_policy: None,
+            skip_post_sign_validation: false,
+            allow_insecure_remote_http: None,
+        }
+    }
+}
+
+impl C2paVerificationConfig {
+    /// Secure opinionated defaults; caller supplies source.
+    pub fn secure_default(source: AssetRef) -> Self {
+        Self {
+            source,
+            mode: VerifyMode::Summary,
+            policy: None,
+            allow_remote_manifests: false,
+            include_certificates: None,
+        }
+    }
 }
 
 /// Configuration for building an Ingredient from an asset.
@@ -117,4 +170,6 @@ pub struct FragmentedBmffConfig {
     pub remote_manifest_url: Option<String>,
     pub embed: bool,
     pub skip_post_sign_validation: bool,
+    /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
+    pub allow_insecure_remote_http: Option<bool>,
 }

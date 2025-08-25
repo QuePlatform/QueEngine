@@ -28,6 +28,14 @@ pub struct VerificationResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verdict: Option<Verdict>,
 
+    /// Whether the manifest is embedded in the asset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_embedded: Option<bool>,
+
+    /// The remote manifest URL, if present.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
+
 }
 
 /// Structured validation status entry.

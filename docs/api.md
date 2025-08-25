@@ -34,46 +34,21 @@ Signs a digital asset with a C2PA manifest.
 pub fn sign_c2pa(cfg: C2paConfig) -> EngineResult<Option<Vec<u8>>>
 ```
 
-**Example:**
+**Example (secure defaults):**
 ```rust
 use que_engine::{sign_c2pa, C2paConfig, AssetRef, OutputTarget, Signer, SigAlg};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-let config = C2paConfig {
-    source: AssetRef::Path(PathBuf::from("image.jpg")),
-    output: OutputTarget::Path(PathBuf::from("signed.jpg")),
-    manifest_definition: Some(r#"{"title": "My Test Image"}"#.to_string()),
-    signer: Signer::from_str("local:cert.pem,key.pem").unwrap(),
-    signing_alg: SigAlg::Ps256,
-    embed: true,
-    parent: None,
-    parent_base_dir: None,
-    timestamper: None,
-    remote_manifest_url: None,
-    trust_policy: None, 
-    skip_post_sign_validation: false,
-};
+let signer = Signer::from_str("env:CERT_PEM,KEY_PEM").unwrap();
+let mut config = C2paConfig::secure_default(
+    AssetRef::Path(PathBuf::from("image.jpg")),
+    signer,
+    SigAlg::Es256,
+);
+config.output = OutputTarget::Path(PathBuf::from("signed.jpg"));
 
 sign_c2pa(config).unwrap();
-```
-
-**Example with built-in test signer:**
-```rust
-let config = C2paConfig {
-    source: AssetRef::Path(PathBuf::from("image.jpg")),
-    output: OutputTarget::Path(PathBuf::from("signed.jpg")),
-    manifest_definition: Some(r#"{"title": "My Test Image"}"#.to_string()),
-    signer: Signer::from_str("builtin:es256").unwrap(), // Uses bundled test certificates
-    signing_alg: SigAlg::Es256, // Must match the built-in signer algorithm
-    embed: true,
-    parent: None,
-    parent_base_dir: None,
-    timestamper: None,
-    remote_manifest_url: None,
-    trust_policy: None,
-    skip_post_sign_validation: false,
-};
 ```
 
 ---
@@ -90,12 +65,12 @@ pub fn verify_c2pa(cfg: C2paVerificationConfig) -> EngineResult<VerificationResu
 use que_engine::{verify_c2pa, C2paVerificationConfig, AssetRef, VerifyMode, TrustPolicyConfig};
 use std::path::PathBuf;
 
-let config = C2paVerificationConfig {
-    source: AssetRef::Path(PathBuf::from("signed.jpg")),
-    mode: VerifyMode::Detailed,
-    allow_remote_manifests: true,
-    policy: Some(TrustPolicyConfig::default()),
-};
+let mut config = C2paVerificationConfig::secure_default(AssetRef::Path(PathBuf::from("signed.jpg")));
+config.mode = VerifyMode::Detailed;
+// To fetch remote manifests, enable the `remote_manifests` feature and opt-in:
+// config.allow_remote_manifests = true;
+// To include certificate chain in results:
+// config.include_certificates = Some(true);
 
 let result = verify_c2pa(config).unwrap();
 println!("{}", result.report);

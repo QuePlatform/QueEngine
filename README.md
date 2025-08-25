@@ -6,7 +6,7 @@
 
 While the official `c2pa-rs` library is powerful, it is a low-level toolkit. QueEngine acts as an abstraction layer on top of it, providing:
 
-- **Safe Defaults:** Common operations like signing and verifying work out-of-the-box with sensible defaults.
+- **Safe Defaults:** Common operations like signing and verifying work out-of-the-box with secure, opinionated defaults.
 - **Powerful Configuration:** Exposes the full power of the underlying C2PA library through well-structured configuration objects, allowing advanced users to customize every aspect of the process.
 - **Clear Boundaries:** A clean separation between pure domain logic and concrete implementation details (the "adapter" pattern).
 - **Security & Stability:** Manages thread-safety for global settings and provides robust error handling to prevent panics from crossing FFI boundaries.
@@ -31,6 +31,14 @@ The underlying `c2pa-rs` library relies on a global static configuration for cer
 
 **Assumption:** To solve this, QueEngine uses a global `Mutex` (`C2PA_SETTINGS_LOCK`). Any function that needs to modify these global settings (like `verify` with a custom policy) will lock the mutex, apply the settings for the duration of the call, and then restore the baseline settings before releasing the lock. This serializes all settings-dependent C2PA calls, ensuring thread safety at the cost of some parallelism for those specific operations.
 
+### 1.3. Security posture and defaults
+
+- HTTPS is enforced by default for all network URLs (timestamp authority, remote manifests). HTTP can be explicitly opted-in behind a feature and per-call flag.
+- Remote manifest fetching is disabled by default; it can be explicitly opted-in behind a feature and per-call flag.
+- DNS hardening prevents requests to private/loopback/link-local IP ranges, including resolutions via domain names (mitigates SSRF/DNS rebinding).
+- Certificate chain inclusion in verification results is opt-in.
+- No built-in or test certificates are bundled. You must bring your own certificates/keys for signing.
+
 #### Feature Gating
 
 QueEngine is heavily feature-gated to produce minimal binaries for different targets. This is critical for security and performance. For example, the `enclave` feature (for on-device signing) should never be compiled into the `QueCloud` server binary, and the `kms` feature (for cloud signing) should never be compiled into a device-side library.
@@ -54,9 +62,57 @@ que-engine = { path = "../Engine/crates/engine" }
 que-engine = { path = "../Engine/crates/engine", features = ["bmff"] }
 ```
 
+### 2.1 Feature flags
+
+Add features you need to your dependency declaration:
+
+- `c2pa` (default): Enable the C2PA adapter.
+- `openssl` (default): Use OpenSSL backend where applicable.
+- `bmff`: Support fragmented BMFF signing helpers.
+- `remote_manifests` (opt-in): Allow fetching remote manifests during verification. Default is disabled.
+- `http_urls` (opt-in): Allow HTTP (non-HTTPS) URLs for TSA/remote manifests. Default is disabled.
+
+Example:
+```toml
+[dependencies]
+que-engine = { path = "../Engine/crates/engine", features = ["bmff", "remote_manifests"] }
+```
+
+### 2.2 Bring-your-own certificates (BYO)
+
+QueEngine does not ship any certificates/keys. Provide your own via:
+
+- `Signer::Local { cert_path, key_path }` (URI format: `local:/path/cert.pem,/path/key.pem`)
+- `Signer::Env { cert_var, key_var }` (URI format: `env:CERT_ENV,KEY_ENV` where env vars contain PEM content)
+
+Example (env):
+```bash
+export CERT_PEM="$(cat /path/to/cert.pem)"
+export KEY_PEM="$(cat /path/to/key.pem)"
+```
+
+### 2.3 Opinionated secure constructors
+
+Use the secure defaults to get started quickly:
+
+```rust
+use que_engine::{C2paConfig, C2paVerificationConfig, AssetRef, SigAlg, Signer};
+
+let signer: Signer = "env:CERT_PEM,KEY_PEM".parse().unwrap();
+let sign_cfg = C2paConfig::secure_default(
+    AssetRef::Path("/path/to/input.jpg".into()),
+    signer,
+    SigAlg::Es256,
+);
+
+let verify_cfg = C2paVerificationConfig::secure_default(
+    AssetRef::Path("/path/to/signed.jpg".into())
+);
+```
+
 ## 3. Next Steps
 
-- **[API Reference](./docs/API.md):** Explore the public functions available in the engine.
+- **[API Reference](./docs/api.md):** Explore the public functions available in the engine.
 - **[Data Structures](./docs/TYPES.md):** Understand the configuration and result types used by the API.
 
 ---
@@ -101,3 +157,9 @@ The `que-ffi` crate generates Swift and Kotlin bindings from the Rust FFI layer.
 This ensures that **every release ships with correct, up-to-date FFI bindings**.
 
 ---
+
+## 5. Notes on network behavior and opt-ins
+
+- Remote manifests: disabled by default. To enable, compile with the `remote_manifests` feature and set `C2paVerificationConfig.allow_remote_manifests = true`.
+- HTTP URLs: disallowed by default. To enable, compile with the `http_urls` feature and set `C2paConfig.allow_insecure_remote_http = Some(true)` (or the same on `FragmentedBmffConfig`).
+- The engine validates URLs and blocks private/loopback/link-local IPs even when specified as hostnames.

@@ -31,8 +31,6 @@ impl From<SignerError> for EngineError {
 pub enum Signer {
     Local { cert_path: PathBuf, key_path: PathBuf },
     Env { cert_var: String, key_var: String },
-    /// Built-in ES256 test signer that uses engine-bundled PEMs.
-    BuiltinEs256,
 }
 
 impl FromStr for Signer {
@@ -41,14 +39,6 @@ impl FromStr for Signer {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (scheme, value) = s.split_once(':').ok_or(SignerError::InvalidScheme)?;
         match scheme {
-            "builtin" => {
-                // format: builtin:es256
-                if value.eq_ignore_ascii_case("es256") {
-                    Ok(Signer::BuiltinEs256)
-                } else {
-                    Err(SignerError::InvalidScheme)
-                }
-            }
             "local" => Ok(Signer::Local {
                 cert_path: {
                     let parts: Vec<&str> = value.split(',').collect();
@@ -98,22 +88,6 @@ impl Signer {
                     None,
                 ).map_err(EngineError::C2pa)?;
                 
-                Ok(signer)
-            }
-            Signer::BuiltinEs256 => {
-                // Load PEMs from crate directory at runtime to avoid build-time include issues.
-                let crate_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                let cert_path = crate_dir.join("es256_certs.pem");
-                let key_path = crate_dir.join("es256_private.pem");
-                if !cert_path.exists() || !key_path.exists() {
-                    return Err(EngineError::Config(format!(
-                        "Built-in ES256 PEMs not found at {} and {}",
-                        cert_path.display(),
-                        key_path.display()
-                    )));
-                }
-                let signer = c2pa::create_signer::from_files(&cert_path, &key_path, alg, None)
-                    .map_err(EngineError::C2pa)?;
                 Ok(signer)
             }
         }

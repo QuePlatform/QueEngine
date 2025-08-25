@@ -10,8 +10,10 @@ fn manual_sign_and_verify() {
     let asset_path = std::path::PathBuf::from("tests/data/sample2.jpg");
 
     // Use a local signer (PEM cert + key you generate with openssl)
-    // Use built-in ES256 test signer from the engine (valid profile/certs)
-    let signer: Signer = "builtin:es256"
+    // Example: export CERT_PEM, KEY_PEM with your PEM contents
+    // and use: "env:CERT_PEM,KEY_PEM" or point to files with "local:/path/cert.pem,/path/key.pem"
+    let signer: Signer = std::env::var("TEST_SIGNER_URI")
+        .unwrap_or_else(|_| "env:CERT_PEM,KEY_PEM".to_string())
         .parse()
         .unwrap();
 
@@ -28,7 +30,7 @@ fn manual_sign_and_verify() {
         remote_manifest_url: None,
         embed: true,
         trust_policy: None,
-        skip_post_sign_validation: true,
+        skip_post_sign_validation: false,
     };
 
     // Generate signed asset

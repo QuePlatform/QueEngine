@@ -36,7 +36,7 @@ impl Timestamper {
     pub fn resolve(&self) -> Option<String> {
         match self {
             Timestamper::Digicert => {
-                Some("http://timestamp.digicert.com".to_string())
+                Some("https://timestamp.digicert.com".to_string())
             }
             Timestamper::Custom(url) => Some(url.clone()),
         }

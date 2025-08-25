@@ -18,6 +18,8 @@ enclave  = []            # on-device signer
 wasm     = []            # optional future WASM build
 ffi      = []            # when building with the ffi crate
 bmff = ["dep:glob"] 
+remote_manifests = []    # opt-in: allow fetching remote manifests at runtime
+http_urls = []           # opt-in: allow HTTP (non-HTTPS) URLs for TSA/manifests
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -27,7 +29,7 @@ url = "2.5"
 once_cell = "1.18"
 
 # Optional deps hidden behind features
-c2pa = { version = "0.57", optional = true, features = [
+c2pa = { version = "0.59", optional = true, features = [
   "file_io",
   "add_thumbnails",
   "openssl",

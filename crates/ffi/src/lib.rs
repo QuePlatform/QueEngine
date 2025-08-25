@@ -81,6 +81,7 @@ fn sign_file_c2pa(
         embed,
         trust_policy: None,
         skip_post_sign_validation: false,
+        allow_insecure_remote_http: None,
     };
 
     sign_c2pa(cfg).map(|_| ()).map_err(FfiError::from)
@@ -102,6 +103,7 @@ fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<String, 
         mode,
         policy: None,
         allow_remote_manifests: false,
+        include_certificates: None,
     };
 
     let report = verify_c2pa(cfg).map_err(FfiError::from)?;
