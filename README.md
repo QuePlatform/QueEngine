@@ -11,9 +11,6 @@ While the official `c2pa-rs` library is powerful, it is a low-level toolkit. Que
 - **Clear Boundaries:** A clean separation between pure domain logic and concrete implementation details (the "adapter" pattern).
 - **Security & Stability:** Manages thread-safety for global settings and provides robust error handling to prevent panics from crossing FFI boundaries.
 
-### 1.1. Role in the Que Ecosystem
-
-- **QueCloud:** The managed service (`QueCloud`) uses QueEngine as a dependency to perform all its C2PA operations (signing with cloud-managed keys, verification with managed trust policies).
 - **Language SDKs (FFI):** The `que-ffi` crate within this repository uses QueEngine to generate native bindings for Swift (iOS/macOS) and Kotlin (Android), enabling on-device, offline provenance operations.
 
 ### 1.2. Core Concepts
@@ -39,6 +36,28 @@ The underlying `c2pa-rs` library relies on a global static configuration for cer
 - Certificate chain inclusion in verification results is opt-in.
 - No built-in or test certificates are bundled. You must bring your own certificates/keys for signing.
 
+### 1.4. Opinionated Defaults Summary
+
+QueEngine follows a "secure by default" philosophy with sensible defaults that can be explicitly opted out of when needed.
+
+All defaults are centralized in the `EngineDefaults` struct for consistency and maintainability. The `secure_default()` methods on all config structs use these centralized defaults.
+
+| Feature | Default | Opt-in Method | Rationale |
+|---------|---------|---------------|-----------|
+| **HTTPS enforcement** | ✅ Enabled | Feature flag `http_urls` | Security baseline |
+| **Remote manifests** | ❌ Disabled | Feature flag `remote_manifests` + `allow_remote_manifests: true` | Network security |
+| **HTTP URLs** | ❌ Disabled | `allow_insecure_remote_http: Some(true)` | SSL/TLS security |
+| **Memory limits** | ✅ 128MB assets | Hard-coded (not configurable) | Resource exhaustion protection |
+| **Trust verification** | ❌ Disabled | Provide `TrustPolicyConfig` | Bring-your-own-trust |
+| **Certificate inclusion** | ❌ Disabled | `include_certificates: Some(true)` | Privacy protection |
+| **Embed manifests** | ✅ Enabled | `embed: false` | Standard C2PA behavior |
+| **Post-sign validation** | ✅ Enabled | `skip_post_sign_validation: true` | Quality assurance |
+| **File input method** | `AssetRef::Bytes` | `AssetRef::Path`, `AssetRef::Stream` | Memory efficiency |
+| **Output method** | `OutputTarget::Memory` | `OutputTarget::Path` | API convenience |
+| **Signing algorithm** | `SigAlg::Es256` | `SigAlg::Es384`, `Ps256`, `Ed25519` | Compatibility |
+| **Verification mode** | `VerifyMode::Summary` | `VerifyMode::Info`, `Detailed`, `Tree` | Performance |
+| **Timestamping** | ❌ Disabled | Provide `Timestamper` | Cost control |
+
 #### Feature Gating
 
 QueEngine is heavily feature-gated to produce minimal binaries for different targets. This is critical for security and performance. For example, the `enclave` feature (for on-device signing) should never be compiled into the `QueCloud` server binary, and the `kms` feature (for cloud signing) should never be compiled into a device-side library.
@@ -48,8 +67,6 @@ See the **Feature Flags** section for a complete list.
 ## 2. Getting Started
 
 Add QueEngine to your project's `Cargo.toml`.
-
-Currently, we have not figured out a way to import the github repository QueEngine because it is private. QueCloud references the repository directly since it is on the same machine
 
 ```toml
 [dependencies]
@@ -98,18 +115,33 @@ If your infrastructure is not prepared to manage certficate lifecycles, check ou
 Use the secure defaults to get started quickly:
 
 ```rust
-use que_engine::{C2paConfig, C2paVerificationConfig, AssetRef, SigAlg, Signer};
+use que_engine::{C2paConfig, C2paVerificationConfig, AssetRef, SigAlg, Signer, EngineDefaults};
 
 let signer: Signer = "env:CERT_PEM,KEY_PEM".parse().unwrap();
 let sign_cfg = C2paConfig::secure_default(
     AssetRef::Path("/path/to/input.jpg".into()),
     signer,
-    SigAlg::Es256,
+    EngineDefaults::SIGNING_ALGORITHM, // Uses centralized default (Es256)
 );
 
 let verify_cfg = C2paVerificationConfig::secure_default(
     AssetRef::Path("/path/to/signed.jpg".into())
 );
+
+// All config structs have secure_default() methods that use EngineDefaults constants
+let ingredient_cfg = IngredientConfig::secure_default(AssetRef::Path("/path/to/asset.jpg".into()));
+```
+
+#### Accessing Default Values Directly
+
+You can also reference individual defaults directly:
+
+```rust
+// Check what the default signing algorithm is
+let alg = EngineDefaults::SIGNING_ALGORITHM; // SigAlg::Es256
+
+// Use in your own configuration logic
+let embed_manifests = EngineDefaults::EMBED_MANIFESTS; // true
 ```
 
 ## 3. Next Steps
@@ -119,7 +151,80 @@ let verify_cfg = C2paVerificationConfig::secure_default(
 
 ---
 
-## 4. CI/CD
+## 4. Production Deployment & API Best Practices
+
+### 4.1 Memory & Security Limits
+
+**Production-tuned limits to prevent memory exhaustion:**
+
+| Limit | Value | Purpose |
+|-------|-------|---------|
+| `MAX_IN_MEMORY_ASSET_SIZE` | 128MB | Prevents loading very large files into RAM |
+| `MAX_IN_MEMORY_OUTPUT_SIZE` | 128MB | Prevents memory explosion from large signed assets |
+| `MAX_STREAM_COPY_SIZE` | 1GB | Max size for stream-to-temp-file operations |
+| `MAX_STREAM_READ_TIMEOUT_SECS` | 300 (5min) | Max time for stream operations |
+
+**When to use each AssetRef type:**
+- **AssetRef::Bytes**: Files < 128MB, API uploads, memory-resident data
+- **AssetRef::Stream**: Files > 10MB, large files, memory-constrained servers
+- **AssetRef::Path**: Local files, after secure URL fetching
+
+### 4.2 Remote Asset Handling
+
+**For remote URLs (S3, HTTP endpoints):**
+1. **Validate first:** Use `validate_external_http_url()` before fetching
+2. **HEAD request:** Check Content-Length and Content-Type before downloading
+3. **Size limits:** Enforce < 1GB content length
+4. **MIME filtering:** Only allow supported types (JPEG, PNG, MP4, PDF, etc.)
+5. **Fetch to temp file:** Store as `AssetRef::Path` for processing
+6. **Timeout handling:** < 5 minutes connect/read timeouts
+
+**Security policies:**
+- HTTPS only by default
+- No redirects or limited redirects with re-validation
+- DNS re-resolution with IP verification
+- Allow only specific MIME types you support
+
+### 4.3 Content Type Handling
+
+**Always provide `content_type` for streams when possible:**
+```rust
+// Good: Explicit content type
+AssetRef::Stream {
+    reader: stream,
+    content_type: Some("image/jpeg".to_string())
+}
+
+// Engine will attempt auto-detection if None, but explicit is better
+```
+
+### 4.4 Error Handling
+
+**Memory limit errors:**
+- `Config("in-memory asset too large")` - File exceeds 128MB
+- `Config("signed output too large to return in memory")` - Output exceeds 128MB
+- `Config("Stream size limit exceeded")` - Stream copy exceeds 1GB
+
+**Handle these by:**
+1. Using `AssetRef::Stream` for large inputs
+2. Using `OutputTarget::Path` for large outputs
+3. Implementing streaming uploads in your API
+
+### 4.5 Supported File Formats
+
+QueEngine only supports the file formats officially supported by C2PA. The engine will automatically detect content types for supported formats, but for best results, provide explicit `content_type` when using `AssetRef::Stream`.
+
+**Supported formats include:**
+- **Images**: JPEG, PNG, GIF, WebP, HEIC, HEIF, AVIF, TIFF, SVG
+- **Video**: MP4, MOV, AVI
+- **Audio**: MP3, M4A, WAV
+- **Documents**: PDF (read-only)
+
+For the complete list of supported formats and their MIME types, see [docs/TYPES.md](docs/TYPES.md).
+
+---
+
+## 5. CI/CD
 
 QueEngine uses **GitHub Actions** to enforce that FFI bindings (Swift/Kotlin) are always up-to-date when a release is tagged.
 
@@ -157,11 +262,3 @@ The `que-ffi` crate generates Swift and Kotlin bindings from the Rust FFI layer.
    ```
 
 This ensures that **every release ships with correct, up-to-date FFI bindings**.
-
----
-
-## 5. Notes on network behavior and opt-ins
-
-- Remote manifests: disabled by default. To enable, compile with the `remote_manifests` feature and set `C2paVerificationConfig.allow_remote_manifests = true`.
-- HTTP URLs: disallowed by default. To enable, compile with the `http_urls` feature and set `C2paConfig.allow_insecure_remote_http = Some(true)` (or the same on `FragmentedBmffConfig`).
-- The engine validates URLs and blocks private/loopback/link-local IPs even when specified as hostnames.

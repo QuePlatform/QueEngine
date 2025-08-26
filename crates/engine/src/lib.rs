@@ -8,7 +8,8 @@ pub mod crypto;
 pub mod domain;
 
 use domain::error::{EngineResult};
-pub use domain::types::{AssetRef, C2paConfig, C2paVerificationConfig, OutputTarget};
+pub use domain::types::{AssetRef, C2paConfig, C2paVerificationConfig, OutputTarget, EngineDefaults, IngredientConfig, FragmentedBmffConfig};
+pub use adapters::c2pa::CAIRead;
 pub use domain::error::EngineError;
 
 /// High-level helpers for the common "C2PA default" path.
@@ -52,5 +53,5 @@ pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> EngineResult<()> {
 pub use crypto::signer::Signer;
 pub use crypto::timestamper::Timestamper;
 pub use domain::manifest_engine::ManifestEngine;
-pub use domain::types::{SigAlg, VerifyMode, TrustPolicyConfig, IngredientConfig, FragmentedBmffConfig};
+pub use domain::types::{SigAlg, VerifyMode, TrustPolicyConfig};
 pub use domain::verify::VerificationResult;

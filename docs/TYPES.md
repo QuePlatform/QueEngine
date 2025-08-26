@@ -24,11 +24,53 @@ pub enum VerifyMode {
 
 ## AssetRef
 Represents a reference to a digital asset.
+
+## Memory Considerations
+- `Path`: Best for local file operations. No memory overhead.
+- `Bytes`: Suitable for small files (< 128MB) or when you need the entire file in memory.
+- `Stream`: Recommended for large files or API scenarios to avoid memory pressure. The stream must implement `Read + Seek + Send` (or just `Read + Seek` on WASM targets).
+
+## Supported File Formats
+QueEngine only supports the file formats officially supported by C2PA:
+
+| Extensions    | MIME type                                                                     |
+| ------------- | ----------------------------------------------------------------------------- |
+| `avi`         | `video/msvideo`, `video/x-msvideo`, `video/avi`, `application/x-troff-msvideo`|
+| `avif`        | `image/avif`                                                                  |
+| `c2pa`        | `application/x-c2pa-manifest-store`                                           |
+| `dng`         | `image/x-adobe-dng`                                                           |
+| `gif`         | `image/gif`                                                                   |
+| `heic`        | `image/heic`                                                                  |
+| `heif`        | `image/heif`                                                                  |
+| `jpg`, `jpeg` | `image/jpeg`                                                                  |
+| `m4a`         | `audio/mp4`                                                                   |
+| `mp3`         | `audio/mpeg`                                                                  |
+| `mp4`         | `video/mp4`, `application/mp4` <sup>*</sup>                                   |
+| `mov`         | `video/quicktime`                                                             |
+| `pdf`         | `application/pdf` <sup>**</sup>                                               |
+| `png`         | `image/png`                                                                   |
+| `svg`         | `image/svg+xml`                                                               |
+| `tif`,`tiff`  | `image/tiff`                                                                  |
+| `wav`         | `audio/wav`                                                                   |
+| `webp`        | `image/webp`                                                                  |
+
+<sup>*</sup> Fragmented MP4 (DASH) is supported only for file-based operations from the Rust library.
+<br/>
+<sup>**</sup> Read-only
+
 ```rust
 pub enum AssetRef {
     Path(PathBuf),
     Bytes {
         data: Vec<u8>,
+    },
+    Stream {
+        /// The streaming reader. Must implement Read + Seek + Send (or Read + Seek on WASM)
+        /// Wrapped in RefCell for interior mutability
+        reader: RefCell<Box<dyn CAIRead>>,
+        /// Optional MIME type hint (e.g., "image/jpeg", "video/mp4")
+        /// If None, the engine will attempt to detect from stream content
+        content_type: Option<String>,
     },
 }
 ```
