@@ -1,6 +1,11 @@
 ## [Unreleased]
 
 ### Added
+- **Complete C2PA v2 API Migration**: Migrated from deprecated C2PA v1 API to v2 API
+  - Enhanced validation with structured `ValidationResults` instead of flat status arrays
+  - Added comprehensive ingredient delta validation support
+  - Improved validation status categorization (success, informational, failure)
+  - Future-proofed against upcoming v1 API deprecation
 - Production-tuned memory limits to prevent memory exhaustion:
   - Asset size limit: reduced from 512MB to 128MB
   - Output size limit: reduced from 512MB to 128MB
@@ -49,6 +54,13 @@
 - Updated README.md with comprehensive defaults summary table and new usage examples showing `EngineDefaults` integration.
 
 ### Changed
+- **C2PA v2 API Migration**: Updated entire C2PA integration to use v2 API
+  - Replaced deprecated `reader.validation_status()` with `reader.validation_results()`
+  - Updated settings API from `load_settings_from_str()` to `Settings::from_string()`
+  - Replaced `CAIRead` trait with standard Rust I/O traits (`Read + Seek + Send`)
+  - Fixed type references: `TrustPolicy` → `TrustPolicyConfig`
+  - Enhanced validation to process both active manifest and ingredient delta results
+  - Maintained full backward compatibility with existing public APIs
 - Refactored monolithic `c2pa.rs` (790 lines) into modular structure:
   - `constants.rs` - Memory limits and settings
   - `content_detection.rs` - File type detection
@@ -65,9 +77,17 @@
 - Added verify-side `verify_identity_trust` support mirroring sign path when a `TrustPolicyConfig` is provided.
 
 ### Removed
+- **C2PA v1 API Support**: Removed deprecated `v1_api` feature from C2PA dependency
+  - No longer possible to enable C2PA v1 API functionality
+  - Forces use of C2PA v2 API (which is the default and recommended)
+  - Removes access to deprecated methods and structures
 - Built-in ES256 signer and any bundled PEM usage. Only BYO certs are supported via `Signer::Local` and `Signer::Env`.
 
 ### Breaking changes
+- **C2PA v1 API Removal**: Removed deprecated `v1_api` feature from C2PA dependency
+  - No longer possible to enable C2PA v1 API functionality
+  - Forces migration to C2PA v2 API (which is the default and recommended)
+  - Removes access to deprecated methods like `validation_status()` flat arrays
 - Removal of `Signer::BuiltinEs256` and parsing of `builtin:*` URIs.
 - New fields added to configs (constructors updated accordingly):
   - `C2paConfig.allow_insecure_remote_http: Option<bool>`
@@ -78,6 +98,12 @@
   - Output size limit: 512MB → 128MB
 
 ### Migration guide
+- **C2PA v1 to v2 Migration**: If you were previously using the `v1_api` feature:
+  - Remove `"v1_api"` from your C2PA dependency features in `Cargo.toml`
+  - The migration is automatic - all existing code will continue to work unchanged
+  - You now get enhanced validation with structured results instead of flat status arrays
+  - Ingredient delta validation is now fully supported
+  - Future-proofed against C2PA v1 API deprecation
 - Replace any `builtin:es256` usage with either `local:/path/cert.pem,/path/key.pem` or `env:CERT_PEM,KEY_PEM`.
 - If you previously relied on remote manifest fetching, compile with `remote_manifests` and set `C2paVerificationConfig.allow_remote_manifests = true`.
 - If you need HTTP URLs (discouraged), compile with `http_urls` and set `allow_insecure_remote_http = Some(true)` on the respective config.

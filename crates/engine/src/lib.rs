@@ -9,7 +9,6 @@ pub mod domain;
 
 use domain::error::{EngineResult};
 pub use domain::types::{AssetRef, C2paConfig, C2paVerificationConfig, OutputTarget, EngineDefaults, IngredientConfig, FragmentedBmffConfig};
-pub use adapters::c2pa::CAIRead;
 pub use domain::error::EngineError;
 
 /// High-level helpers for the common "C2PA default" path.

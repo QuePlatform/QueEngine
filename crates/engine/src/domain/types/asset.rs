@@ -1,6 +1,11 @@
 use std::path::PathBuf;
 use std::cell::RefCell;
-use crate::adapters::c2pa::CAIRead;
+use std::io::{Read, Seek};
+
+// Trait alias for streaming readers
+pub trait StreamReader: Read + Seek + Send {}
+
+impl<T: Read + Seek + Send> StreamReader for T {}
 
 /// A reference to an asset, which can be a path, in-memory bytes, or a stream.
 ///
@@ -32,7 +37,7 @@ pub enum AssetRef {
     Stream {
         /// The streaming reader. Must implement Read + Seek + Send (or Read + Seek on WASM)
         /// Wrapped in RefCell for interior mutability
-        reader: RefCell<Box<dyn CAIRead>>,
+        reader: RefCell<Box<dyn StreamReader>>,
         /// Optional MIME type hint (e.g., "image/jpeg", "video/mp4")
         /// If None, the engine will attempt to detect from stream content
         content_type: Option<String>,

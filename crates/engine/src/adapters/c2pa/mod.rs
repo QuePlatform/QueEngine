@@ -1,7 +1,5 @@
 // Main C2PA adapter module - re-exports all public interfaces
 
-pub use c2pa::CAIRead;
-
 mod constants;
 mod content_detection;
 mod url_validation;

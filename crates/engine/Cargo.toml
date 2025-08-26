@@ -32,7 +32,6 @@ c2pa = { version = "0.59", optional = true, features = [
   "add_thumbnails",
   "openssl",
   "fetch_remote_manifests",
-  "v1_api",
 ] }
 openssl = { version = "0.10", optional = true }
 tempfile = "3.15.0"

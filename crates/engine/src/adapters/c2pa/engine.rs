@@ -15,7 +15,7 @@ use super::url_validation::validate_external_http_url;
 pub struct C2pa;
 
 impl C2pa {
-  fn build_trust_settings(policy: &crate::domain::types::TrustPolicy) -> EngineResult<(Vec<serde_json::Value>, bool)> {
+  fn build_trust_settings(policy: &crate::domain::types::TrustPolicyConfig) -> EngineResult<(Vec<serde_json::Value>, bool)> {
     let mut settings = Vec::new();
     let mut enable_trust = false;
 
@@ -235,16 +235,85 @@ impl ManifestEngine for C2pa {
             })
         } else { None };
 
-        let status_vec = reader.validation_status().map(|arr| {
-          arr.iter()
-            .map(|s| ValidationStatus {
-              code: s.code().to_string(),
-              url: s.url().map(|u| u.to_string()),
-              explanation: s.explanation().map(|e| e.to_string()),
-              ingredient_uri: s.ingredient_uri().map(|i| i.to_string()),
-              passed: s.passed(),
-            })
-            .collect::<Vec<_>>()
+        // Use validation_results() with the new v2 API
+        let status_vec = reader.validation_results().map(|results| {
+          let mut all_statuses = Vec::new();
+
+          // Process active manifest validation results
+          if let Some(active_manifest) = results.active_manifest() {
+            // StatusCodes has success, informational, and failure categories
+            // Each returns &Vec<ValidationStatus>
+            for status in active_manifest.success() {
+              all_statuses.push(ValidationStatus {
+                code: status.code().to_string(),
+                url: status.url().map(|u| u.to_string()),
+                explanation: status.explanation().map(|e| e.to_string()),
+                ingredient_uri: status.ingredient_uri().map(|i| i.to_string()),
+                passed: status.passed(),
+              });
+            }
+
+            for status in active_manifest.informational() {
+              all_statuses.push(ValidationStatus {
+                code: status.code().to_string(),
+                url: status.url().map(|u| u.to_string()),
+                explanation: status.explanation().map(|e| e.to_string()),
+                ingredient_uri: status.ingredient_uri().map(|i| i.to_string()),
+                passed: status.passed(),
+              });
+            }
+
+            for status in active_manifest.failure() {
+              all_statuses.push(ValidationStatus {
+                code: status.code().to_string(),
+                url: status.url().map(|u| u.to_string()),
+                explanation: status.explanation().map(|e| e.to_string()),
+                ingredient_uri: status.ingredient_uri().map(|i| i.to_string()),
+                passed: status.passed(),
+              });
+            }
+          }
+
+          // Process ingredient delta validation results
+          if let Some(ingredient_deltas) = results.ingredient_deltas() {
+            for delta_result in ingredient_deltas {
+              // Get the validation deltas (StatusCodes) from each ingredient delta
+              let validation_deltas = delta_result.validation_deltas();
+
+              // Process success, informational, and failure statuses from ingredient deltas
+              for status in validation_deltas.success() {
+                all_statuses.push(ValidationStatus {
+                  code: status.code().to_string(),
+                  url: status.url().map(|u| u.to_string()),
+                  explanation: status.explanation().map(|e| e.to_string()),
+                  ingredient_uri: status.ingredient_uri().map(|i| i.to_string()),
+                  passed: status.passed(),
+                });
+              }
+
+              for status in validation_deltas.informational() {
+                all_statuses.push(ValidationStatus {
+                  code: status.code().to_string(),
+                  url: status.url().map(|u| u.to_string()),
+                  explanation: status.explanation().map(|e| e.to_string()),
+                  ingredient_uri: status.ingredient_uri().map(|i| i.to_string()),
+                  passed: status.passed(),
+                });
+              }
+
+              for status in validation_deltas.failure() {
+                all_statuses.push(ValidationStatus {
+                  code: status.code().to_string(),
+                  url: status.url().map(|u| u.to_string()),
+                  explanation: status.explanation().map(|e| e.to_string()),
+                  ingredient_uri: status.ingredient_uri().map(|i| i.to_string()),
+                  passed: status.passed(),
+                });
+              }
+            }
+          }
+
+          all_statuses
         });
 
         let verdict = status_vec.as_ref().map(|statuses| {

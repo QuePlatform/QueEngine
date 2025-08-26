@@ -5,6 +5,9 @@ use crate::domain::error::{EngineError, EngineResult};
 use crate::crypto::timestamper::Timestamper;
 use super::constants::{C2PA_SETTINGS_LOCK, BASE_SETTINGS};
 
+#[cfg(feature = "c2pa")]
+use c2pa::settings::Settings;
+
 pub fn apply_settings(jsons: &[serde_json::Value]) -> EngineResult<()> {
   #[cfg(not(feature = "c2pa"))]
   {
@@ -12,9 +15,11 @@ pub fn apply_settings(jsons: &[serde_json::Value]) -> EngineResult<()> {
   }
   #[cfg(feature = "c2pa")]
   {
-    c2pa::settings::load_settings_from_str(BASE_SETTINGS, "json")?;
+    // For JSON content, we need to use from_string with json format
+
+    let _ = Settings::from_string(BASE_SETTINGS, "json")?;
     for s in jsons {
-      c2pa::settings::load_settings_from_str(&s.to_string(), "json")?;
+      let _ = Settings::from_string(&s.to_string(), "json")?;
     }
     Ok(())
   }
@@ -34,7 +39,7 @@ where
 
   // Always attempt to restore baseline settings
   #[cfg(feature = "c2pa")]
-  let _ = c2pa::settings::load_settings_from_str(BASE_SETTINGS, "json");
+  let _ = Settings::from_string(BASE_SETTINGS, "json");
 
   match result {
     Ok(r) => r,
