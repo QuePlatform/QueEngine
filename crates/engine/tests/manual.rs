@@ -39,13 +39,11 @@ fn manual_sign_and_verify() {
 
     // Verify
     let verify_cfg = C2paVerificationConfig {
-        source: AssetRef::Bytes {
-            data: signed_bytes.unwrap(),
-            ext: Some("jpg".into()),
-        },
+        source: AssetRef::Bytes { data: signed_bytes.unwrap() },
         mode: VerifyMode::Summary,
         policy: None,
         allow_remote_manifests: false,
+        include_certificates: None,
     };
 
     let result = verify_c2pa(verify_cfg).expect("verification failed");

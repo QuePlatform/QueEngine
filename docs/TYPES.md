@@ -29,7 +29,6 @@ pub enum AssetRef {
     Path(PathBuf),
     Bytes {
         data: Vec<u8>,
-        ext: Option<String>,
     },
 }
 ```

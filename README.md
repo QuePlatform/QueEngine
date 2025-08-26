@@ -91,6 +91,8 @@ export CERT_PEM="$(cat /path/to/cert.pem)"
 export KEY_PEM="$(cat /path/to/key.pem)"
 ```
 
+If your infrastructure is not prepared to manage certficate lifecycles, check out [Que Cloud](addque.com) for a fully managed, cost efficient service. ß
+
 ### 2.3 Opinionated secure constructors
 
 Use the secure defaults to get started quickly:

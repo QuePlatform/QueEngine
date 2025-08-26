@@ -24,7 +24,6 @@ pub fn sign_c2pa_bytes(
 ) -> EngineResult<Vec<u8>> {
     cfg.source = AssetRef::Bytes {
         data: bytes.to_vec(),
-        ext: None,
     };    
     cfg.output = OutputTarget::Memory;
     match adapters::c2pa::C2pa::generate(cfg)? {

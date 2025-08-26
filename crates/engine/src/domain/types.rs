@@ -33,14 +33,11 @@ pub enum VerifyMode {
 }
 
 /// A reference to an asset, which can be a path or in-memory bytes.
-/// The `ext` field provides an optional file extension hint for byte-based
-/// assets, which can help the C2PA library determine the content type.
 #[derive(Debug, Clone)]
 pub enum AssetRef {
     Path(PathBuf),
     Bytes {
         data: Vec<u8>,
-        ext: Option<String>,
     },
 }
 

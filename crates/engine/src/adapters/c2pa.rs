@@ -148,36 +148,92 @@ fn prepare_manifest_json(
   }
 }
 
+fn detect_extension_from_bytes(data: &[u8]) -> Option<&'static str> {
+  // JPEG
+  if data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
+    return Some("jpg");
+  }
+  // PNG
+  if data.len() >= 8 && data[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A] {
+    return Some("png");
+  }
+  // GIF
+  if data.len() >= 6 && (&data[..6] == b"GIF87a" || &data[..6] == b"GIF89a") {
+    return Some("gif");
+  }
+  // WEBP / RIFF-based
+  if data.len() >= 12 && &data[..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+    return Some("webp");
+  }
+  // WAV
+  if data.len() >= 12 && &data[..4] == b"RIFF" && &data[8..12] == b"WAVE" {
+    return Some("wav");
+  }
+  // AVI
+  if data.len() >= 12 && &data[..4] == b"RIFF" && &data[8..12] == b"AVI " {
+    return Some("avi");
+  }
+  // TIFF (II*\0 or MM\0*)
+  if data.len() >= 4 && ((&data[..4] == b"II*\0") || (&data[..4] == b"MM\0*")) {
+    return Some("tiff");
+  }
+  // MP4/MOV/ISO-BMFF (ftyp box)
+  if data.len() >= 12 && &data[4..8] == b"ftyp" {
+    // Heuristic brands
+    if data.len() >= 16 {
+      let brand = &data[8..12];
+      if brand == b"heic" || brand == b"heif" { return Some("heic"); }
+      if brand == b"avif" { return Some("avif"); }
+      if brand == b"mp42" || brand == b"isom" || brand == b"qt  " { return Some("mp4"); }
+    }
+    return Some("mp4");
+  }
+  // PDF
+  if data.len() >= 5 && &data[..5] == b"%PDF-" {
+    return Some("pdf");
+  }
+  // SVG (very loose check: starts with '<' and contains "<svg" early)
+  if data.len() >= 5 && data[0] == b'<' {
+    let head = &data[..std::cmp::min(512, data.len())];
+    if let Ok(s) = std::str::from_utf8(head) {
+      if s.to_ascii_lowercase().contains("<svg") {
+        return Some("svg");
+      }
+    }
+  }
+  // ICO
+  if data.len() >= 4 && &data[..4] == [0x00, 0x00, 0x01, 0x00] {
+    return Some("ico");
+  }
+  // BMP
+  if data.len() >= 2 && &data[..2] == b"BM" {
+    return Some("bmp");
+  }
+  // MP3 (ID3 tag or frame sync 0xFFEx)
+  if data.len() >= 3 && &data[..3] == b"ID3" {
+    return Some("mp3");
+  }
+  if data.len() >= 2 && data[0] == 0xFF && (data[1] & 0xE0) == 0xE0 {
+    return Some("mp3");
+  }
+  None
+}
+
 fn asset_to_temp_path(
   asset: &AssetRef,
 ) -> EngineResult<(std::path::PathBuf, Option<tempfile::TempDir>)> {
   match asset {
     AssetRef::Path(p) => Ok((p.clone(), None)),
-    AssetRef::Bytes { data, ext } => {
+    AssetRef::Bytes { data } => {
       if data.len() > MAX_IN_MEMORY_ASSET_SIZE {
         return Err(EngineError::Config("in-memory asset too large".into()));
       }
       let dir = tempfile::tempdir()?;
-      let filename = ext
-        .as_deref()
-        .map(|e| {
-          let safe: String = e.chars().filter(|c| c.is_ascii_alphanumeric()).take(10).collect();
-          if safe.is_empty() { "asset".to_string() } else { format!("asset.{safe}") }
-        })
-        .unwrap_or_else(|| {
-          // Infer extension from file content when none provided
-          if data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
-            "asset.jpg".to_string()
-          } else if data.len() >= 8 && data[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A] {
-            "asset.png".to_string()
-          } else if data.len() >= 4 && data[..4] == [0x52, 0x49, 0x46, 0x46] && data.len() >= 12 && data[8..12] == [0x57, 0x45, 0x42, 0x50] {
-            "asset.webp".to_string()
-          } else if data.len() >= 4 && data[..4] == [0x00, 0x00, 0x00, 0x18] && data.len() >= 8 && data[4..8] == [0x66, 0x74, 0x79, 0x70] {
-            "asset.mp4".to_string()
-          } else {
-            "asset".to_string() // fallback to no extension
-          }
-        });
+      let filename = if let Some(ext) = detect_extension_from_bytes(data) {
+        format!("asset.{ext}")
+      } else {
+        "asset".to_string()
+      };
       let path = dir.path().join(filename);
       std::fs::write(&path, data)?;
       Ok((path, Some(dir)))
@@ -284,13 +340,8 @@ impl ManifestEngine for C2pa {
           }
           OutputTarget::Memory => {
             let dir = tempfile::tempdir()?;
-             // Preserve the source file extension for the output so the c2pa
-            // library can determine the correct handler (e.g., jpeg, png, etc.).
-            let out_filename = match src_path.extension().and_then(|e| e.to_str()) {
-              Some(ext_str) if !ext_str.is_empty() => format!("output_asset.{ext_str}"),
-              _ => "output_asset".to_string(),
-            };
-            let out_path = dir.path().join(out_filename);
+            // Use a generic output filename; c2pa determines correct handling.
+            let out_path = dir.path().join("output_asset");
             builder.sign_file(&*signer, &src_path, &out_path)?;
             let meta = std::fs::metadata(&out_path)?;
             if meta.len() as usize > MAX_IN_MEMORY_OUTPUT_SIZE {
