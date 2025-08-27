@@ -102,6 +102,21 @@ pub struct C2paConfig {
     pub skip_post_sign_validation: bool,
     /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
     pub allow_insecure_remote_http: Option<bool>,
+    #[cfg(feature = "cawg")]
+    pub cawg_identity: Option<CawgIdentity>,
+}
+```
+
+## CawgIdentity
+Configuration for CAWG (Creator Assertions Working Group) X.509 identity assertions during signing.
+Requires the `cawg` feature flag to be enabled.
+```rust
+#[cfg(feature = "cawg")]
+pub struct CawgIdentity {
+    pub signer: Signer,
+    pub signing_alg: SigAlg,
+    pub referenced_assertions: Vec<String>,
+    pub timestamper: Option<Timestamper>,
 }
 ```
 
@@ -115,6 +130,58 @@ pub struct C2paVerificationConfig {
     pub allow_remote_manifests: bool,
     /// Opt-in: include signing certificates in result
     pub include_certificates: Option<bool>,
+    #[cfg(feature = "cawg")]
+    pub cawg: Option<CawgVerifyOptions>,
+}
+```
+
+## CawgVerifyOptions
+Configuration for CAWG identity assertion validation during verification.
+Requires the `cawg` feature flag to be enabled.
+```rust
+#[cfg(feature = "cawg")]
+pub struct CawgVerifyOptions {
+    pub validate: bool,
+    pub require_valid_identity: bool,
+}
+```
+
+## CawgVerification
+Results of CAWG identity assertion validation.
+Requires the `cawg` feature flag to be enabled.
+```rust
+#[cfg(feature = "cawg")]
+pub struct CawgVerification {
+    pub present: bool,
+    pub valid: bool,
+    pub signature_info: Option<serde_json::Value>,
+}
+```
+
+## VerificationResult
+Result of a C2PA verification operation, containing the validation report and optional structured data.
+```rust
+pub struct VerificationResult {
+    pub report: String,
+    /// Optional list of certificates involved in signing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificates: Option<Vec<CertInfo>>,
+    /// Structured validation statuses mapped from c2pa validation results.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<Vec<ValidationStatus>>,
+    /// Overall verification verdict.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<Verdict>,
+    /// Whether the manifest is embedded in the asset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_embedded: Option<bool>,
+    /// The remote manifest URL, if present.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
+    /// CAWG identity verification results (requires feature)
+    #[cfg(feature = "cawg")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cawg: Option<CawgVerification>,
 }
 ```
 

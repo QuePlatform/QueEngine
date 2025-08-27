@@ -15,4 +15,5 @@
   - environment variables containing PEMs.
 - Remote manifest fetching is disabled by default. If needed, build with `remote_manifests` and opt-in at runtime.
 - HTTP URLs are disabled by default. If absolutely required, build with `http_urls` and set the per-call flag; HTTPS is strongly recommended.
+- CAWG (Creator Assertions Working Group) identity assertions are available when built with the `cawg` feature flag.
 - URL validation includes DNS/IP checks to block private/loopback/link-local ranges.

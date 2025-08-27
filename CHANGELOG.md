@@ -1,6 +1,14 @@
 ## [Unreleased]
 
 ### Added
+- **CAWG (Creator Assertions Working Group) Identity Assertions Support**: New `cawg` feature flag enables X.509 identity assertions for both signing and verification
+  - Supports CAWG v1 specification with X.509 certificate-based identity assertions
+  - Requires claim version 2 (automatically enforced when CAWG is used)
+  - Signing: Wraps main manifest signer with `AsyncIdentityAssertionSigner` and X.509 credential holder
+  - Verification: Validates CAWG identity assertions using `CawgValidator` from c2pa-rs
+  - New types: `CawgIdentity`, `CawgVerifyOptions`, `CawgVerification`
+  - Secure by default: feature-gated, BYO certificates only, defaults to disabled
+  - Helper constructors: `create_cawg_x509_config()`, `create_cawg_verify_options()`
 - **Complete C2PA v2 API Migration**: Migrated from deprecated C2PA v1 API to v2 API
   - Enhanced validation with structured `ValidationResults` instead of flat status arrays
   - Added comprehensive ingredient delta validation support

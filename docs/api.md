@@ -94,3 +94,50 @@ Signs fragmented BMFF content (e.g., fMP4 video).
 #[cfg(all(feature = "c2pa", feature = "bmff"))]
 pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> EngineResult<()>
 ```
+
+---
+
+## CAWG (Creator Assertions Working Group) Functions
+
+The following functions are available when the `cawg` feature flag is enabled:
+
+### `create_cawg_x509_config`
+Creates a CAWG identity configuration for X.509 certificate-based identity assertions.
+
+```rust
+#[cfg(feature = "cawg")]
+pub fn create_cawg_x509_config(
+    signer: Signer,
+    referenced_assertions: Vec<String>
+) -> CawgIdentity
+```
+
+**Example:**
+```rust
+use que_engine::{create_cawg_x509_config, Signer, CawgIdentity};
+
+let signer = Signer::from_str("env:CAWG_CERT_PEM,CAWG_KEY_PEM").unwrap();
+let cawg_identity = create_cawg_x509_config(
+    signer,
+    vec!["cawg.training-mining".to_string()]
+);
+```
+
+### `create_cawg_verify_options`
+Creates CAWG verification options with specified validation settings.
+
+```rust
+#[cfg(feature = "cawg")]
+pub fn create_cawg_verify_options(
+    validate: bool,
+    require_valid_identity: bool
+) -> CawgVerifyOptions
+```
+
+**Example:**
+```rust
+use que_engine::{create_cawg_verify_options, CawgVerifyOptions};
+
+// Enable CAWG validation and require valid identity
+let cawg_opts = create_cawg_verify_options(true, true);
+```

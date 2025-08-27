@@ -8,6 +8,7 @@ While the official `c2pa-rs` library is powerful, it is a low-level toolkit. Que
 
 - **Safe Defaults:** Common operations like signing and verifying work out-of-the-box with secure, opinionated defaults.
 - **Powerful Configuration:** Exposes the full power of the underlying C2PA library through well-structured configuration objects, allowing advanced users to customize every aspect of the process.
+- **Identity Assertions:** Support for CAWG (Creator Assertions Working Group) X.509 identity assertions for enhanced creator verification (requires `cawg` feature).
 - **Clear Boundaries:** A clean separation between pure domain logic and concrete implementation details (the "adapter" pattern).
 - **Security & Stability:** Manages thread-safety for global settings and provides robust error handling to prevent panics from crossing FFI boundaries.
 
@@ -47,6 +48,7 @@ All defaults are centralized in the `EngineDefaults` struct for consistency and 
 | **HTTPS enforcement** | ✅ Enabled | Feature flag `http_urls` | Security baseline |
 | **Remote manifests** | ❌ Disabled | Feature flag `remote_manifests` + `allow_remote_manifests: true` | Network security |
 | **HTTP URLs** | ❌ Disabled | `allow_insecure_remote_http: Some(true)` | SSL/TLS security |
+| **CAWG identity assertions** | ❌ Disabled | Feature flag `cawg` + `CawgIdentity` config | Identity verification |
 | **Memory limits** | ✅ 128MB assets | Hard-coded (not configurable) | Resource exhaustion protection |
 | **Trust verification** | ❌ Disabled | Provide `TrustPolicyConfig` | Bring-your-own-trust |
 | **Certificate inclusion** | ❌ Disabled | `include_certificates: Some(true)` | Privacy protection |
@@ -70,13 +72,13 @@ Add QueEngine to your project's `Cargo.toml`.
 
 ```toml
 [dependencies]
-que-engine = { path = "../Engine/crates/engine" }
+que-engine = { git = "https://github.com/QuePlatform/QueEngine", path = "crates/engine" }
 ```
 
 **To include support for fragmented BMFF (MP4) files:**
 ```toml
 [dependencies]
-que-engine = { path = "../Engine/crates/engine", features = ["bmff"] }
+que-engine = { git = "https://github.com/QuePlatform/QueEngine", path = "crates/engine", features = ["bmff"] }
 ```
 
 ### 2.1 Feature flags
@@ -86,13 +88,14 @@ Add features you need to your dependency declaration:
 - `c2pa` (default): Enable the C2PA adapter.
 - `openssl` (default): Use OpenSSL backend where applicable.
 - `bmff`: Support fragmented BMFF signing helpers.
+- `cawg` (opt-in): Enable CAWG (Creator Assertions Working Group) X.509 identity assertions for signing and verification. Default is disabled.
 - `remote_manifests` (opt-in): Allow fetching remote manifests during verification. Default is disabled.
 - `http_urls` (opt-in): Allow HTTP (non-HTTPS) URLs for TSA/remote manifests. Default is disabled.
 
 Example:
 ```toml
 [dependencies]
-que-engine = { path = "../Engine/crates/engine", features = ["bmff", "remote_manifests"] }
+que-engine = { git = "https://github.com/QuePlatform/QueEngine", features = ["bmff", "remote_manifests"] }
 ```
 
 ### 2.2 Bring-your-own certificates (BYO)
