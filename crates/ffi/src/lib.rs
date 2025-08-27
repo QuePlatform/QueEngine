@@ -8,27 +8,29 @@ use que_engine::domain::types::{
 use que_engine::domain::error::EngineError;
 use que_engine::{sign_c2pa, verify_c2pa};
 
+#[derive(uniffi::Record)]
 pub struct VerifyOptions {
     pub detailed: bool,
     pub info: bool,
     pub tree: bool,
 }
 
-#[derive(thiserror::Error, Debug)]
-#[error("{message}")]
-pub struct FfiError {
-    pub message: String,
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum FfiError {
+    #[error("{message}")]
+    Generic { message: String },
 }
 
 impl From<EngineError> for FfiError {
     fn from(e: EngineError) -> Self {
-        Self {
+        FfiError::Generic {
             message: e.to_string(),
         }
     }
 }
 
-fn sign_file_c2pa(
+#[uniffi::export]
+pub fn sign_file_c2pa(
     signer_spec: String,
     alg: String,
     source_path: String,
@@ -39,7 +41,7 @@ fn sign_file_c2pa(
     remote_manifest_url: Option<String>,
     embed: bool,
 ) -> Result<(), FfiError> {
-    let signer: Signer = signer_spec.parse().map_err(|e| FfiError {
+    let signer: Signer = signer_spec.parse().map_err(|e| FfiError::Generic {
         message: format!("Invalid signer: {e}"),
     })?;
 
@@ -49,7 +51,7 @@ fn sign_file_c2pa(
         "PS256" => SigAlg::Ps256,
         "ED25519" => SigAlg::Ed25519,
         _ => {
-            return Err(FfiError {
+            return Err(FfiError::Generic {
                 message: format!("Unsupported alg: {alg}"),
             })
         }
@@ -62,7 +64,7 @@ fn sign_file_c2pa(
             Some(Timestamper::Custom(v.trim_start_matches("custom:").to_string()))
         }
         Some(v) => {
-            return Err(FfiError {
+            return Err(FfiError::Generic {
                 message: format!("Invalid timestamper: {v}"),
             })
         }
@@ -87,7 +89,8 @@ fn sign_file_c2pa(
     sign_c2pa(cfg).map(|_| ()).map_err(FfiError::from)
 }
 
-fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<String, FfiError> {
+#[uniffi::export]
+pub fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<String, FfiError> {
     let mode = if opts.detailed {
         VerifyMode::Detailed
     } else if opts.info {

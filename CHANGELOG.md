@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Fixed
+- **FFI Bindings Generation**: Fixed Swift and Kotlin bindings generation issues
+  - Corrected Cargo.toml workspace configuration by removing conflicting `[package]` section
+  - Added proper `#[uniffi::export]` attributes to FFI functions (`sign_file_c2pa`, `verify_file_c2pa`)
+  - Fixed UniFFI error handling by converting `FfiError` from struct to enum with `#[derive(uniffi::Error)]`
+  - Added `#[derive(uniffi::Record)]` to `VerifyOptions` struct for proper FFI serialization
+  - Bindings now properly expose: `signFileC2pa()`, `verifyFileC2pa()`, `VerifyOptions`, and `FfiError`
+
 ### Added
 - **CAWG (Creator Assertions Working Group) Identity Assertions Support**: New `cawg` feature flag enables X.509 identity assertions for both signing and verification
   - Supports CAWG v1 specification with X.509 certificate-based identity assertions
