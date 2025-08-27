@@ -5,11 +5,10 @@ mod content_detection;
 mod url_validation;
 mod asset_utils;
 mod settings;
-mod engine;
 
-pub use constants::*;
-pub use content_detection::*;
-pub use url_validation::*;
-pub use asset_utils::*;
-pub use settings::*;
-pub use engine::*;
+#[cfg(feature = "cawg")]
+mod cawg;
+
+pub mod engine;
+
+pub use engine::C2pa;

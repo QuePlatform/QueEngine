@@ -30,6 +30,14 @@ impl EngineDefaults {
     pub const HAS_PARENT: Option<AssetRef> = None; // No parent by default
     pub const HAS_PARENT_BASE_DIR: Option<PathBuf> = None; // No base dir override
     pub const HAS_REMOTE_MANIFEST_URL: Option<String> = None; // No remote URL
+
+    // CAWG defaults
+    #[cfg(feature = "cawg")]
+    pub const CAWG_VALIDATE: bool = false; // Secure default: no CAWG validation
+    #[cfg(feature = "cawg")]
+    pub const CAWG_REQUIRE_VALID_IDENTITY: bool = false; // Secure default: don't require CAWG
+    #[cfg(feature = "cawg")]
+    pub const CAWG_SIGNING_ALGORITHM: SigAlg = SigAlg::Ed25519; // Best for CAWG compatibility
 }
 
 /// Configuration for C2PA generation.
@@ -53,6 +61,9 @@ pub struct C2paConfig {
     pub skip_post_sign_validation: bool,
     /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
     pub allow_insecure_remote_http: Option<bool>,
+    /// Optional CAWG identity configuration (requires feature)
+    #[cfg(feature = "cawg")]
+    pub cawg_identity: Option<crate::domain::cawg::CawgIdentity>,
 }
 
 /// Configuration for C2PA verification.
@@ -64,6 +75,9 @@ pub struct C2paVerificationConfig {
     pub allow_remote_manifests: bool,
     /// Opt-in: include signing certificates in result
     pub include_certificates: Option<bool>,
+    /// Optional CAWG verification options (requires feature)
+    #[cfg(feature = "cawg")]
+    pub cawg: Option<crate::domain::cawg::CawgVerifyOptions>,
 }
 
 impl Default for C2paVerificationConfig {
@@ -74,6 +88,8 @@ impl Default for C2paVerificationConfig {
             policy: EngineDefaults::HAS_TRUST_POLICY,
             allow_remote_manifests: EngineDefaults::ALLOW_REMOTE_MANIFESTS,
             include_certificates: EngineDefaults::INCLUDE_CERTIFICATES,
+            #[cfg(feature = "cawg")]
+            cawg: None, // CAWG validation disabled by default (secure)
         }
     }
 }
@@ -95,6 +111,8 @@ impl C2paConfig {
             trust_policy: EngineDefaults::HAS_TRUST_POLICY,
             skip_post_sign_validation: EngineDefaults::SKIP_POST_SIGN_VALIDATION,
             allow_insecure_remote_http: EngineDefaults::ALLOW_INSECURE_HTTP,
+            #[cfg(feature = "cawg")]
+            cawg_identity: None, // CAWG disabled by default (secure)
         }
     }
 }
@@ -108,6 +126,8 @@ impl C2paVerificationConfig {
             policy: EngineDefaults::HAS_TRUST_POLICY,
             allow_remote_manifests: EngineDefaults::ALLOW_REMOTE_MANIFESTS,
             include_certificates: EngineDefaults::INCLUDE_CERTIFICATES,
+            #[cfg(feature = "cawg")]
+            cawg: None, // CAWG validation disabled by default (secure)
         }
     }
 }

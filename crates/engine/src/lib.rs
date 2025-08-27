@@ -54,3 +54,49 @@ pub use crypto::timestamper::Timestamper;
 pub use domain::manifest_engine::ManifestEngine;
 pub use domain::types::{SigAlg, VerifyMode, TrustPolicyConfig};
 pub use domain::verify::VerificationResult;
+
+// CAWG types (feature-gated)
+#[cfg(feature = "cawg")]
+pub use domain::cawg::{CawgIdentity, CawgVerifyOptions, CawgVerification};
+
+/// Helper function to create CAWG X.509 identity configuration.
+/// This provides a convenient way to set up CAWG identity with sensible defaults.
+///
+/// # Arguments
+/// * `signer` - Certificate and private key for CAWG identity signing
+/// * `referenced_assertions` - List of assertion labels that this identity should reference
+///
+/// # Returns
+/// A `CawgIdentity` configured with Ed25519 algorithm and no timestamping
+#[cfg(feature = "cawg")]
+pub fn create_cawg_x509_config(
+    signer: Signer,
+    referenced_assertions: Vec<String>,
+) -> CawgIdentity {
+    CawgIdentity {
+        signer,
+        signing_alg: EngineDefaults::CAWG_SIGNING_ALGORITHM,
+        referenced_assertions,
+        timestamper: None,
+    }
+}
+
+/// Helper function to create CAWG verification options.
+/// This provides a convenient way to set up CAWG validation with sensible defaults.
+///
+/// # Arguments
+/// * `validate` - Whether to run CAWG identity validation
+/// * `require_valid_identity` - Whether to fail verification if CAWG identity is missing/invalid
+///
+/// # Returns
+/// A `CawgVerifyOptions` configured with the specified validation settings
+#[cfg(feature = "cawg")]
+pub fn create_cawg_verify_options(
+    validate: bool,
+    require_valid_identity: bool,
+) -> CawgVerifyOptions {
+    CawgVerifyOptions {
+        validate,
+        require_valid_identity,
+    }
+}

@@ -15,9 +15,10 @@ local    = []            # dev signer (from files/env)
 enclave  = []            # on-device signer
 wasm     = []            # optional future WASM build
 ffi      = []            # when building with the ffi crate
-bmff = ["dep:glob"] 
+bmff = ["dep:glob"]
 remote_manifests = []    # opt-in: allow fetching remote manifests at runtime
 http_urls = []           # opt-in: allow HTTP (non-HTTPS) URLs for TSA/manifests
+cawg = []                # opt-in: CAWG identity assertion support
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -35,7 +36,8 @@ c2pa = { version = "0.59", optional = true, features = [
 ] }
 openssl = { version = "0.10", optional = true }
 tempfile = "3.15.0"
-glob = { version = "0.3", optional = true } 
+glob = { version = "0.3", optional = true }
+tokio = { version = "1", features = ["rt", "macros"] } 
 
 [dev-dependencies]
 rcgen = { version = "0.12", features = ["pem"] }

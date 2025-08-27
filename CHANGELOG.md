@@ -23,7 +23,13 @@
     - `url_validation.rs` - Security validation and remote asset handling
     - `asset_utils.rs` - Asset processing and streaming utilities
     - `settings.rs` - C2PA settings management and manifest preparation
-    - `engine.rs` - Main C2pa struct and core business logic
+    - `engine/` folder with specialized modules:
+      - `engine/mod.rs` - Main C2pa struct and ManifestEngine trait implementation
+      - `engine/common.rs` - Shared utilities (build_trust_settings, setup_builder, ensure_claim_version_2)
+      - `engine/sign.rs` - Signing operations (generate/sign_c2pa)
+      - `engine/verify.rs` - Verification operations (verify_c2pa)
+      - `engine/ingredient.rs` - Ingredient creation operations
+      - `engine/bmff.rs` - Fragmented BMFF operations (generate_fragmented_bmff)
   - **Domain types**: Split monolithic `types.rs` (216 lines) into logical modules
     - `core.rs` - SigAlg, VerifyMode, OutputTarget
     - `asset.rs` - AssetRef and implementations

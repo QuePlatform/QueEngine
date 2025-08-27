@@ -23,8 +23,8 @@ pub struct VerificationResult {
     pub certificates: Option<Vec<CertInfo>>,
     /// Structured validation statuses mapped from c2pa validation results.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<Vec<ValidationStatus>>,   
-    
+    pub status: Option<Vec<ValidationStatus>>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verdict: Option<Verdict>,
 
@@ -36,6 +36,10 @@ pub struct VerificationResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remote_url: Option<String>,
 
+    /// CAWG identity verification results (requires feature)
+    #[cfg(feature = "cawg")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cawg: Option<crate::domain::cawg::CawgVerification>,
 }
 
 /// Structured validation status entry.
