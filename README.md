@@ -88,7 +88,7 @@ Add features you need to your dependency declaration:
 - `c2pa` (default): Enable the C2PA adapter.
 - `openssl` (default): Use OpenSSL backend where applicable.
 - `bmff`: Support fragmented BMFF signing helpers.
-- `cawg` (opt-in): Enable CAWG (Creator Assertions Working Group) X.509 identity assertions for signing and verification. Default is disabled.
+- `cawg` (opt-in): Enable CAWG (Creator Assertions Working Group) X.509 identity assertions for signing and verification. Defaults to reusing main signer certificates when enabled for enhanced creator verification.
 - `remote_manifests` (opt-in): Allow fetching remote manifests during verification. Default is disabled.
 - `http_urls` (opt-in): Allow HTTP (non-HTTPS) URLs for TSA/remote manifests. Default is disabled.
 
@@ -100,8 +100,19 @@ que-engine = { git = "https://github.com/QuePlatform/QueEngine", features = ["bm
 
 ### 2.2 Bring-your-own certificates (BYO)
 
-QueEngine does not ship any certificates/keys. Provide your own via:
+QueEngine requires C2PA-compatible certificates for signing.
 
+#### Development & Testing
+For development and testing, you can use the included test certificates:
+- Certificate: [`es256_certs.pem`](./es256_certs.pem)
+- Private key: [`es256_private.pem`](./es256_private.pem)
+
+**Note:** These test certificates are for development only and will not be trusted in production environments.
+
+#### Production Use
+For production use, you'll need your own C2PA-compatible certificates from an official Certificate Authority. The easiest way to get production-ready C2PA signing is using [QueCloud](https://addque.com), which provides a fully managed, cost-efficient service with built-in certificate management and secure key storage.
+
+Alternatively, you can provide your own certificates via:
 - `Signer::Local { cert_path, key_path }` (URI format: `local:/path/cert.pem,/path/key.pem`)
 - `Signer::Env { cert_var, key_var }` (URI format: `env:CERT_ENV,KEY_ENV` where env vars contain PEM content)
 
@@ -110,8 +121,6 @@ Example (env):
 export CERT_PEM="$(cat /path/to/cert.pem)"
 export KEY_PEM="$(cat /path/to/key.pem)"
 ```
-
-If your infrastructure is not prepared to manage certficate lifecycles, check out [Que Cloud](addque.com) for a fully managed, cost efficient service. ß
 
 ### 2.3 Opinionated secure constructors
 

@@ -56,31 +56,25 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
           )
           .await?;
 
-          match (&config.source, &config.output) {
-            (AssetRef::Path(_) | AssetRef::Bytes { .. }, _) => {
-              let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source)?;
-              match &config.output {
-                OutputTarget::Path(dest) => {
-                  builder.sign_file_async(&*signer, &src_path, dest).await?;
-                  Ok(None)
-                }
-                OutputTarget::Memory => {
-                  let temp_dir = tempfile::tempdir()?;
-                  let temp_path = temp_dir.path().join("signed_asset");
-                  builder.sign_file_async(&*signer, &src_path, &temp_path).await?;
-                  let buf = std::fs::read(&temp_path)?;
-                  if buf.len() > MAX_IN_MEMORY_OUTPUT_SIZE {
-                    return Err(EngineError::Config(
-                      "signed output too large to return in memory".into(),
-                    ));
-                  }
-                  Ok(Some(buf))
-                }
-              }
+          // Support all input types by converting to a temp path when needed
+          let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source)?;
+          match &config.output {
+            OutputTarget::Path(dest) => {
+              builder.sign_file_async(&*signer, &src_path, dest).await?;
+              Ok(None)
             }
-            (AssetRef::Stream { .. }, _) => Err(EngineError::Config(
-              "Streaming input is not supported with CAWG signing.".into(),
-            )),
+            OutputTarget::Memory => {
+              let temp_dir = tempfile::tempdir()?;
+              let temp_path = temp_dir.path().join("signed_asset");
+              builder.sign_file_async(&*signer, &src_path, &temp_path).await?;
+              let buf = std::fs::read(&temp_path)?;
+              if buf.len() > MAX_IN_MEMORY_OUTPUT_SIZE {
+                return Err(EngineError::Config(
+                  "signed output too large to return in memory".into(),
+                ));
+              }
+              Ok(Some(buf))
+            }
           }
         });
       }

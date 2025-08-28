@@ -107,17 +107,60 @@ pub struct C2paConfig {
 }
 ```
 
+## CawgSigner
+Enum specifying which certificates to use for CAWG identity assertions.
+Requires the `cawg` feature flag to be enabled.
+```rust
+#[cfg(feature = "cawg")]
+pub enum CawgSigner {
+    /// Use the same certificate and private key as the main C2PA signer
+    /// This is the default and recommended behavior for most use cases
+    UseMainSigner,
+    /// Use a separate certificate and private key for CAWG identity assertions
+    /// Use this when different entities handle manifest signing vs identity assertion
+    Separate(Signer),
+}
+```
+
 ## CawgIdentity
 Configuration for CAWG (Creator Assertions Working Group) X.509 identity assertions during signing.
 Requires the `cawg` feature flag to be enabled.
 ```rust
 #[cfg(feature = "cawg")]
 pub struct CawgIdentity {
-    pub signer: Signer,
+    pub signer: CawgSigner,
     pub signing_alg: SigAlg,
     pub referenced_assertions: Vec<String>,
     pub timestamper: Option<Timestamper>,
 }
+```
+
+### Certificate Usage Patterns
+
+#### Default: Certificate Reuse
+```rust
+use que_engine::{CawgIdentity, CawgSigner, SigAlg};
+
+let cawg_identity = CawgIdentity {
+    signer: CawgSigner::UseMainSigner,  // Reuse main signer certs
+    signing_alg: SigAlg::Ed25519,
+    referenced_assertions: vec!["c2pa.actions".to_string()],
+    timestamper: None,
+};
+```
+
+#### Separate Certificates
+```rust
+use que_engine::{CawgIdentity, CawgSigner, Signer, SigAlg};
+use std::str::FromStr;
+
+let cawg_signer = Signer::from_str("local:/path/cawg-cert.pem,/path/cawg-key.pem").unwrap();
+let cawg_identity = CawgIdentity {
+    signer: CawgSigner::Separate(cawg_signer),  // Use separate certs
+    signing_alg: SigAlg::Ed25519,
+    referenced_assertions: vec!["c2pa.actions".to_string()],
+    timestamper: None,
+};
 ```
 
 ## C2paVerificationConfig

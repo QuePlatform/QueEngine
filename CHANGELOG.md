@@ -3,10 +3,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), 
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
+## [0.1.0] - 2025-08-27
 ## [Unreleased]
 
-## [0.1.0] - 2025-08-27
+### Added
+- **CAWG Certificate Reuse Enhancement**
+  - New `CawgSigner` enum allows reusing main C2PA signer certificates for CAWG identity assertions
+  - `CawgSigner::UseMainSigner`: Default behavior - automatically uses same cert/key as main C2PA manifest signer
+  - `CawgSigner::Separate(Signer)`: Opt-out option for using separate certificates for CAWG
+  - Updated `create_cawg_x509_config()` helper to use `CawgSigner::Separate` for explicit separate certs
+  - Enhanced `create_cawg_raw_signer()` to support certificate reuse while honoring CAWG-specific algorithm and timestamp settings
+  - Improved API ergonomics: Most users can now enable CAWG with minimal configuration changes
+
+### Enhanced
+- **CAWG Security & Safety Improvements**
+  - Fixed borrow checker issues in CAWG signer creation
+  - Cleaned up unused parameters and improved code organization
+  - Enhanced CAWG validation status detection with precise code matching
+  - Added comprehensive zeroization of raw certificate material after signer construction
+  - Added Unix-specific file permission checks for private key files
+  - Improved CAWG signing to support all `AssetRef` input types via temp file conversion
+
 ### Added
 - **CAWG (Creator Assertions Working Group) Identity Assertions Support**
   - New `cawg` feature flag enables X.509 identity assertions for both signing and verification
@@ -17,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New types: `CawgIdentity`, `CawgVerifyOptions`, `CawgVerification`
   - Secure by default: feature-gated, BYO certificates only, defaults to disabled
   - Helper constructors: `create_cawg_x509_config()`, `create_cawg_verify_options()`
+  - Added automatic zeroization of raw certificate and private key material from memory immediately after signer construction
+  - Added Unix-specific file permission checks for private key files (rejects group/other-readable keys with insecure permissions)
+  - Tightened CAWG status code matching to prevent overmatching with related but different assertion types
+  - Enhanced CAWG signing to support streaming input via temp file conversion (previously restricted to files/bytes only)
+    - CAWG signing now supports all `AssetRef` input types (Path, Bytes, Stream) instead of just Path/Bytes
+  - Improved CAWG validation status detection with more precise code matching patterns
+  - Added dependency on `zeroize` crate for secure memory wiping of sensitive cryptographic material
 
 - **Complete C2PA v2 API Migration**
   - Enhanced validation with structured `ValidationResults` instead of flat status arrays

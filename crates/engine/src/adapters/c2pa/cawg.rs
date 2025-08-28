@@ -9,7 +9,27 @@ use c2pa::{
 
 };
 use crate::domain::error::{EngineError, EngineResult};
-use crate::domain::cawg::{CawgIdentity, CawgVerifyOptions, CawgVerification};
+use crate::domain::cawg::{CawgIdentity, CawgVerifyOptions, CawgVerification, CawgSigner};
+use zeroize::Zeroize;
+use std::path::Path;
+
+#[cfg(unix)]
+fn check_private_key_permissions(path: &Path) -> EngineResult<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let metadata = std::fs::metadata(path)
+        .map_err(|e| EngineError::Config(format!("Failed to stat key file: {}", e)))?;
+    let mode = metadata.permissions().mode();
+    // Disallow any group/other permissions
+    if (mode & 0o077) != 0 {
+        return Err(EngineError::Config(
+            format!("Insecure key file permissions for {} (expected 0600 or stricter)", path.display())
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn check_private_key_permissions(_path: &Path) -> EngineResult<()> { Ok(()) }
 
 /// Creates a CAWG-enabled signer from CAWG identity configuration.
 /// This creates a dual-signer setup where the main C2PA signer is wrapped
@@ -36,9 +56,10 @@ pub async fn create_cawg_signer(
 ) -> EngineResult<Box<dyn c2pa::AsyncSigner>> {
     // Temporarily extract raw cert/key data for async signer creation
     // This is scoped to minimize the exposure of raw key material
-    let (main_cert, main_key) = {
+    let (mut main_cert, mut main_key) = {
         match main_signer {
             crate::crypto::signer::Signer::Local { cert_path, key_path } => {
+                check_private_key_permissions(key_path)?;
                 let cert = std::fs::read(cert_path)
                     .map_err(|e| EngineError::Config(format!("Failed to read cert: {}", e)))?;
                 let key = std::fs::read(key_path)
@@ -62,12 +83,16 @@ pub async fn create_cawg_signer(
         &main_cert,
         &main_key,
         main_alg,
-        main_timestamp,
+        main_timestamp.clone(),
     )
     .map_err(|e| EngineError::C2pa(c2pa::Error::OtherError(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))))?;
 
+    // Zeroize raw key material from memory after constructing signer
+    main_cert.zeroize();
+    main_key.zeroize();
+
     // Create CAWG raw signer from the CAWG identity configuration
-    let cawg_raw_signer = create_cawg_raw_signer(cawg_config).await?;
+    let cawg_raw_signer = create_cawg_raw_signer(cawg_config, main_signer, main_timestamp).await?;
 
     // Wrap the main signer with CAWG identity assertion signer
     let mut ia_signer = AsyncIdentityAssertionSigner::new(main_raw_signer);
@@ -92,36 +117,91 @@ pub async fn create_cawg_signer(
 /// This helper function converts the QueEngine Signer abstraction into
 /// a c2pa raw signer for CAWG identity assertions.
 #[cfg(feature = "cawg")]
-async fn create_cawg_raw_signer(cfg: &CawgIdentity) -> EngineResult<Box<dyn c2pa::crypto::raw_signature::AsyncRawSigner + Send + Sync>> {
+async fn create_cawg_raw_signer(
+    cfg: &CawgIdentity,
+    main_signer: &crate::crypto::signer::Signer,
+    main_timestamp: Option<String>,
+) -> EngineResult<Box<dyn c2pa::crypto::raw_signature::AsyncRawSigner + Send + Sync>> {
     use crate::crypto::signer::Signer;
     match &cfg.signer {
-        Signer::Local { cert_path, key_path } => {
-            let cert_bytes = std::fs::read(cert_path)
+        CawgSigner::UseMainSigner => {
+            // Reuse main signer credentials for CAWG
+            // We still honor the CAWG-specific algorithm and timestamper
+            // but source the cert/key from the main signer.
+            let (mut cert_bytes, mut key_bytes) = match main_signer {
+                Signer::Local { cert_path, key_path } => {
+                    check_private_key_permissions(key_path)?;
+                    let c = std::fs::read(cert_path)
+                        .map_err(|e| EngineError::Config(format!("Failed to read main cert: {}", e)))?;
+                    let k = std::fs::read(key_path)
+                        .map_err(|e| EngineError::Config(format!("Failed to read main key: {}", e)))?;
+                    (c, k)
+                }
+                Signer::Env { cert_var, key_var } => {
+                    let c = std::env::var(cert_var)
+                        .map_err(|_| EngineError::Config(format!("Main cert env var not found: {}", cert_var)))?
+                        .into_bytes();
+                    let k = std::env::var(key_var)
+                        .map_err(|_| EngineError::Config(format!("Main key env var not found: {}", key_var)))?
+                        .into_bytes();
+                    (c, k)
+                }
+            };
+
+            let signer = raw_signature::async_signer_from_cert_chain_and_private_key(
+                &cert_bytes,
+                &key_bytes,
+                cfg.signing_alg.to_c2pa(),
+                cfg.timestamper.as_ref().and_then(|t| t.resolve()).or(main_timestamp),
+            )
+            .map_err(|e| EngineError::C2pa(c2pa::Error::OtherError(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))))?;
+
+            cert_bytes.zeroize();
+            key_bytes.zeroize();
+            Ok(signer)
+        }
+        CawgSigner::Separate(Signer::Local { cert_path, key_path }) => {
+            check_private_key_permissions(key_path)?;
+            let mut cert_bytes = std::fs::read(cert_path)
                 .map_err(|e| EngineError::Config(format!("Failed to read CAWG cert: {}", e)))?;
-            let key_bytes = std::fs::read(key_path)
+            let mut key_bytes = std::fs::read(key_path)
                 .map_err(|e| EngineError::Config(format!("Failed to read CAWG key: {}", e)))?;
 
-            raw_signature::async_signer_from_cert_chain_and_private_key(
+            let signer = raw_signature::async_signer_from_cert_chain_and_private_key(
                 &cert_bytes,
                 &key_bytes,
                 cfg.signing_alg.to_c2pa(),
                 cfg.timestamper.as_ref().and_then(|t| t.resolve()),
             )
-            .map_err(|e| EngineError::C2pa(c2pa::Error::OtherError(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))))
+            .map_err(|e| EngineError::C2pa(c2pa::Error::OtherError(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))))?;
+
+            // Zeroize buffers
+            cert_bytes.zeroize();
+            key_bytes.zeroize();
+
+            Ok(signer)
         }
-        Signer::Env { cert_var, key_var } => {
+        CawgSigner::Separate(Signer::Env { cert_var, key_var }) => {
             let cert_pem = std::env::var(cert_var)
                 .map_err(|_| EngineError::Config(format!("CAWG cert env var not found: {}", cert_var)))?;
             let key_pem = std::env::var(key_var)
                 .map_err(|_| EngineError::Config(format!("CAWG key env var not found: {}", key_var)))?;
 
-            raw_signature::async_signer_from_cert_chain_and_private_key(
-                cert_pem.as_bytes(),
-                key_pem.as_bytes(),
+            let mut cert_bytes = cert_pem.into_bytes();
+            let mut key_bytes = key_pem.into_bytes();
+
+            let signer = raw_signature::async_signer_from_cert_chain_and_private_key(
+                &cert_bytes,
+                &key_bytes,
                 cfg.signing_alg.to_c2pa(),
                 cfg.timestamper.as_ref().and_then(|t| t.resolve()),
             )
-            .map_err(|e| EngineError::C2pa(c2pa::Error::OtherError(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))))
+            .map_err(|e| EngineError::C2pa(c2pa::Error::OtherError(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))))?;
+
+            cert_bytes.zeroize();
+            key_bytes.zeroize();
+
+            Ok(signer)
         }
     }
 }
@@ -173,7 +253,8 @@ pub async fn validate_cawg(
     // Check for CAWG identity assertions in validation results
     if let Some(active_manifest) = validation_results.active_manifest() {
         for status in active_manifest.success() {
-            if status.code().starts_with("cawg.identity") {
+            let code = status.code();
+            if code == "cawg.identity" || code.starts_with("cawg.identity.") {
                 cawg_present = true;
                 break;
             }
@@ -181,7 +262,8 @@ pub async fn validate_cawg(
 
         // Check for CAWG validation failures
         for status in active_manifest.failure() {
-            if status.code().starts_with("cawg.identity") {
+            let code = status.code();
+            if code == "cawg.identity" || code.starts_with("cawg.identity.") {
                 cawg_present = true;
                 cawg_valid = false;
                 break;

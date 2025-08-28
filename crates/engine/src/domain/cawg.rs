@@ -7,9 +7,20 @@ use crate::SigAlg;
 /// This defines the identity assertion that will be added to the C2PA manifest.
 #[cfg(feature = "cawg")]
 #[derive(Debug, Clone)]
+pub enum CawgSigner {
+    /// Use the same certificate/key as the main C2PA signer
+    UseMainSigner,
+    /// Use a separate certificate/key for CAWG identity
+    Separate(Signer),
+}
+
+/// CAWG X.509 identity configuration for signing.
+/// This defines the identity assertion that will be added to the C2PA manifest.
+#[cfg(feature = "cawg")]
+#[derive(Debug, Clone)]
 pub struct CawgIdentity {
-    /// BYO certificate and private key for the CAWG identity signer
-    pub signer: Signer,
+    /// Which credentials to use for CAWG identity signing
+    pub signer: CawgSigner,
     /// Signing algorithm for the CAWG identity (default: Ed25519)
     pub signing_alg: SigAlg,
     /// List of assertion labels that this identity assertion should reference

@@ -57,7 +57,7 @@ pub use domain::verify::VerificationResult;
 
 // CAWG types (feature-gated)
 #[cfg(feature = "cawg")]
-pub use domain::cawg::{CawgIdentity, CawgVerifyOptions, CawgVerification};
+pub use domain::cawg::{CawgIdentity, CawgVerifyOptions, CawgVerification, CawgSigner};
 
 /// Helper function to create CAWG X.509 identity configuration.
 /// This provides a convenient way to set up CAWG identity with sensible defaults.
@@ -74,7 +74,7 @@ pub fn create_cawg_x509_config(
     referenced_assertions: Vec<String>,
 ) -> CawgIdentity {
     CawgIdentity {
-        signer,
+        signer: crate::domain::cawg::CawgSigner::Separate(signer),
         signing_alg: EngineDefaults::CAWG_SIGNING_ALGORITHM,
         referenced_assertions,
         timestamper: None,

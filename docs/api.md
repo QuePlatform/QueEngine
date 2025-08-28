@@ -101,8 +101,33 @@ pub fn generate_fragmented_bmff(cfg: FragmentedBmffConfig) -> EngineResult<()>
 
 The following functions are available when the `cawg` feature flag is enabled:
 
+### Certificate Reuse (Default Behavior)
+
+When CAWG is enabled, the engine defaults to reusing the main C2PA signer certificates:
+
+```rust
+use que_engine::{sign_c2pa, C2paConfig, AssetRef, CawgIdentity, CawgSigner};
+
+let main_signer = Signer::from_str("env:CERT_PEM,KEY_PEM").unwrap();
+
+// CAWG with certificate reuse (recommended default)
+let cawg_identity = CawgIdentity {
+    signer: CawgSigner::UseMainSigner,  // Reuse main signer certs
+    signing_alg: SigAlg::Ed25519,
+    referenced_assertions: vec!["c2pa.actions".to_string()],
+    timestamper: None,
+};
+
+let config = C2paConfig {
+    source: AssetRef::Path("image.jpg".into()),
+    signer: main_signer,
+    cawg_identity: Some(cawg_identity),
+    ..Default::default()
+};
+```
+
 ### `create_cawg_x509_config`
-Creates a CAWG identity configuration for X.509 certificate-based identity assertions.
+Creates a CAWG identity configuration with separate certificates for CAWG identity assertions.
 
 ```rust
 #[cfg(feature = "cawg")]
@@ -121,6 +146,14 @@ let cawg_identity = create_cawg_x509_config(
     signer,
     vec!["cawg.training-mining".to_string()]
 );
+
+// This is equivalent to:
+let cawg_identity = CawgIdentity {
+    signer: CawgSigner::Separate(signer),
+    signing_alg: SigAlg::Ed25519,
+    referenced_assertions: vec!["cawg.training-mining".to_string()],
+    timestamper: None,
+};
 ```
 
 ### `create_cawg_verify_options`
