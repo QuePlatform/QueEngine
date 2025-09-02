@@ -4,13 +4,22 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 anyhow = "1"
 thiserror = "1"
-que-engine = { path = "../engine", features = ["ffi", "c2pa", "openssl"] }
+que-engine = { path = "../engine" }
 uniffi = { version = "0.28", features = ["cli"] }
+
+[features]
+default = ["c2pa", "openssl"]
+c2pa = ["que-engine/c2pa"]
+openssl = ["que-engine/openssl"]
+bmff = ["que-engine/bmff"]
+cawg = ["que-engine/cawg"]
+remote_manifests = ["que-engine/remote_manifests"]
+http_urls = ["que-engine/http_urls"]
 
 [[bin]]
 name = "uniffi-bindgen"

@@ -1,0 +1,13 @@
+[bindings.kotlin]
+package_name = "com.que.engine"
+cdylib_name = "que_engine_ffi"
+
+[bindings.swift]
+module_name = "QueEngine"
+cdylib_name = "que_engine_ffi"
+
+[bindings.python]
+cdylib_name = "que_engine_ffi"
+
+[bindings.ruby]
+cdylib_name = "que_engine_ffi"

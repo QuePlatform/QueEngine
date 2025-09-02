@@ -13,7 +13,7 @@ cargo run -p que-engine-ffi --bin uniffi-bindgen generate \
   --language kotlin \
   --out-dir bindings/kotlin
 
-# WASM bindings - Commented out due to OpenSSL dependency issues
+# WASM bindings - Ready but requires WASM-compatible crypto
 # wasm-pack build crates/ffi --target web --out-dir bindings/js
-# Note: The engine uses OpenSSL which doesn't easily compile to WASM
-# For WASM support, we would need to use a WASM-compatible crypto library
+#
+# Note: Currently blocked by OpenSSL dependency in the c2pa crate
