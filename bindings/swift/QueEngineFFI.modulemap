@@ -1,0 +1,4 @@
+module QueEngineFFI {
+    header "QueEngineFFI.h"
+    export *
+}

@@ -1,0 +1,4 @@
+module que_engine_ffiFFI {
+    header "que_engine_ffiFFI.h"
+    export *
+}
