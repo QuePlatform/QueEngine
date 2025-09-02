@@ -1,9 +1,40 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.1] - 2025-01-15
+
+[Full Changelog](https://github.com/QuePlatform/QueEngine/compare/v0.1.0...v0.1.1)
+
+### Added
+- **Configurable File Size Limits**
+  - New `LimitsConfig` struct for per-call memory/stream limit customization
+  - Added `limits` field to `C2paConfig`, `C2paVerificationConfig`, `IngredientConfig`, `FragmentedBmffConfig`
+  - Maintains secure defaults while allowing customization
+
+- **Complete FFI API Surface**
+  - Expanded FFI bindings to mirror full Rust API with typed configurations
+  - New FFI types: `FfiC2paConfig`, `FfiC2paVerificationConfig`, `FfiLimitsConfig`, structured result types
+  - Full enum support for all configuration options
+  - Backward compatibility maintained
+
+### Enhanced
+- **UniFFI Configuration**
+  - Proper scaffolding setup and build dependencies
+  - Added `uniffi.toml` for multi-language binding generation
+  - Enhanced build system for Swift, Kotlin, and future WASM support
+
+### Fixed
+- **FFI Build System**
+  - Resolved binding generation issues for Swift and Kotlin
+  - Fixed build dependencies and scaffolding setup
+  - Documented WASM blocking issue (OpenSSL dependency)
+
 ## [0.1.0] - 2025-08-29
+
+[Full Changelog](https://github.com/QuePlatform/QueEngine/commits/v0.1.0)
 ### Added
 - **CAWG Certificate Reuse Enhancement**
   - New `CawgSigner` enum allows reusing main C2PA signer certificates for CAWG identity assertions
