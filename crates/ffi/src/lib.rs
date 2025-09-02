@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use que_engine::crypto::signer::Signer;
 use que_engine::crypto::timestamper::Timestamper;
 use que_engine::domain::types::{
-    AssetRef, OutputTarget, C2paConfig, C2paVerificationConfig, SigAlg, VerifyMode,
+    AssetRef, OutputTarget, C2paConfig, C2paVerificationConfig, SigAlg, VerifyMode, LimitsConfig,
 };
 use que_engine::domain::error::EngineError;
 use que_engine::{sign_c2pa, verify_c2pa};
@@ -84,6 +84,7 @@ pub fn sign_file_c2pa(
         trust_policy: None,
         skip_post_sign_validation: false,
         allow_insecure_remote_http: None,
+        limits: LimitsConfig::defaults(),
     };
 
     sign_c2pa(cfg).map(|_| ()).map_err(FfiError::from)
@@ -107,6 +108,7 @@ pub fn verify_file_c2pa(source_path: String, opts: VerifyOptions) -> Result<Stri
         policy: None,
         allow_remote_manifests: false,
         include_certificates: None,
+        limits: LimitsConfig::defaults(),
     };
 
     let report = verify_c2pa(cfg).map_err(FfiError::from)?;

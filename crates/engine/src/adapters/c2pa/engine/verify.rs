@@ -55,7 +55,7 @@ pub fn verify_c2pa(
           Reader::from_stream(format, &mut *stream)?
         }
         _ => {
-          let (src_path, _tmp_dir) = asset_to_temp_path(&config.source)?;
+          let (src_path, _tmp_dir) = asset_to_temp_path(&config.source, config.limits)?;
           Reader::from_file(&src_path)?
         }
       };

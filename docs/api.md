@@ -36,7 +36,7 @@ pub fn sign_c2pa(cfg: C2paConfig) -> EngineResult<Option<Vec<u8>>>
 
 **Example (secure defaults):**
 ```rust
-use que_engine::{sign_c2pa, C2paConfig, AssetRef, OutputTarget, Signer, SigAlg};
+use que_engine::{sign_c2pa, C2paConfig, AssetRef, OutputTarget, Signer, SigAlg, LimitsConfig};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -47,6 +47,12 @@ let mut config = C2paConfig::secure_default(
     SigAlg::Es256,
 );
 config.output = OutputTarget::Path(PathBuf::from("signed.jpg"));
+
+// Optional: override memory/stream limits per call
+config.limits = LimitsConfig {
+    max_in_memory_asset_size: 256 * 1024 * 1024, // 256MB
+    ..LimitsConfig::defaults()
+};
 
 sign_c2pa(config).unwrap();
 ```
@@ -62,11 +68,13 @@ pub fn verify_c2pa(cfg: C2paVerificationConfig) -> EngineResult<VerificationResu
 
 **Example:**
 ```rust
-use que_engine::{verify_c2pa, C2paVerificationConfig, AssetRef, VerifyMode, TrustPolicyConfig};
+use que_engine::{verify_c2pa, C2paVerificationConfig, AssetRef, VerifyMode, TrustPolicyConfig, LimitsConfig};
 use std::path::PathBuf;
 
 let mut config = C2paVerificationConfig::secure_default(AssetRef::Path(PathBuf::from("signed.jpg")));
 config.mode = VerifyMode::Detailed;
+// Optional: adjust per-call limits
+config.limits.max_stream_copy_size = 2 * 1024 * 1024 * 1024; // 2GB
 // To fetch remote manifests, enable the `remote_manifests` feature and opt-in:
 // config.allow_remote_manifests = true;
 // To include certificate chain in results:

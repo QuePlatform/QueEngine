@@ -171,10 +171,12 @@ let embed_manifests = EngineDefaults::EMBED_MANIFESTS; // true
 
 | Limit | Value | Purpose |
 |-------|-------|---------|
-| `MAX_IN_MEMORY_ASSET_SIZE` | 128MB | Prevents loading very large files into RAM |
-| `MAX_IN_MEMORY_OUTPUT_SIZE` | 128MB | Prevents memory explosion from large signed assets |
-| `MAX_STREAM_COPY_SIZE` | 1GB | Max size for stream-to-temp-file operations |
-| `MAX_STREAM_READ_TIMEOUT_SECS` | 300 (5min) | Max time for stream operations |
+| `max_in_memory_asset_size` | 128MB (default) | Prevents loading very large files into RAM |
+| `max_in_memory_output_size` | 128MB (default) | Prevents memory explosion from large signed assets |
+| `max_stream_copy_size` | 1GB (default) | Max size for stream-to-temp-file operations |
+| `max_stream_read_timeout_secs` | 300s (default) | Max time for stream operations |
+
+These are now configurable per call via `LimitsConfig` in each config's `limits` field, while maintaining secure defaults.
 
 **When to use each AssetRef type:**
 - **AssetRef::Bytes**: Files < 128MB, API uploads, memory-resident data

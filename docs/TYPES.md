@@ -102,6 +102,8 @@ pub struct C2paConfig {
     pub skip_post_sign_validation: bool,
     /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
     pub allow_insecure_remote_http: Option<bool>,
+    /// Per-call memory/stream limits (defaults are production-safe)
+    pub limits: LimitsConfig,
     #[cfg(feature = "cawg")]
     pub cawg_identity: Option<CawgIdentity>,
 }
@@ -173,6 +175,8 @@ pub struct C2paVerificationConfig {
     pub allow_remote_manifests: bool,
     /// Opt-in: include signing certificates in result
     pub include_certificates: Option<bool>,
+    /// Per-call memory/stream limits (used when temp files are created)
+    pub limits: LimitsConfig,
     #[cfg(feature = "cawg")]
     pub cawg: Option<CawgVerifyOptions>,
 }
@@ -244,6 +248,8 @@ Configuration for building an Ingredient from an asset.
 pub struct IngredientConfig {
     pub source: AssetRef,
     pub output: OutputTarget,
+    /// Per-call memory/stream limits (used when temp files are created)
+    pub limits: LimitsConfig,
 }
 ```
 
@@ -263,6 +269,19 @@ pub struct FragmentedBmffConfig {
     pub skip_post_sign_validation: bool,
     /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
     pub allow_insecure_remote_http: Option<bool>,
+    /// Per-call memory/stream limits
+    pub limits: LimitsConfig,
+}
+```
+
+## LimitsConfig
+Per-call memory and streaming limits. Defaults are production-safe and can be overridden as needed.
+```rust
+pub struct LimitsConfig {
+    pub max_in_memory_asset_size: usize,
+    pub max_in_memory_output_size: usize,
+    pub max_stream_copy_size: usize,
+    pub max_stream_read_timeout_secs: u64,
 }
 ```
 

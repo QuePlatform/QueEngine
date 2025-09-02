@@ -40,6 +40,31 @@ impl EngineDefaults {
     pub const CAWG_SIGNING_ALGORITHM: SigAlg = SigAlg::Ed25519; // Best for CAWG compatibility
 }
 
+/// Configurable per-call limits to control memory and streaming behavior.
+#[derive(Debug, Clone, Copy)]
+pub struct LimitsConfig {
+    /// Max size allowed when the asset is provided as in-memory bytes.
+    pub max_in_memory_asset_size: usize,
+    /// Max size allowed when returning a signed asset into memory.
+    pub max_in_memory_output_size: usize,
+    /// Max number of bytes to copy from a stream to a temporary file.
+    pub max_stream_copy_size: usize,
+    /// Max time (in seconds) allowed for stream reads/copies.
+    pub max_stream_read_timeout_secs: u64,
+}
+
+impl LimitsConfig {
+    /// Opinionated production defaults.
+    pub fn defaults() -> Self {
+        Self {
+            max_in_memory_asset_size: 128 * 1024 * 1024,      // 128 MB
+            max_in_memory_output_size: 128 * 1024 * 1024,     // 128 MB
+            max_stream_copy_size: 1024 * 1024 * 1024,         // 1 GB
+            max_stream_read_timeout_secs: 300,                 // 5 minutes
+        }
+    }
+}
+
 /// Configuration for C2PA generation.
 #[derive(Debug)]
 pub struct C2paConfig {
@@ -61,6 +86,8 @@ pub struct C2paConfig {
     pub skip_post_sign_validation: bool,
     /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
     pub allow_insecure_remote_http: Option<bool>,
+    /// Per-call limits. Defaults are tuned for production safety.
+    pub limits: LimitsConfig,
     /// Optional CAWG identity configuration (requires feature)
     #[cfg(feature = "cawg")]
     pub cawg_identity: Option<crate::domain::cawg::CawgIdentity>,
@@ -75,6 +102,8 @@ pub struct C2paVerificationConfig {
     pub allow_remote_manifests: bool,
     /// Opt-in: include signing certificates in result
     pub include_certificates: Option<bool>,
+    /// Per-call limits. Used when converting inputs to temp files.
+    pub limits: LimitsConfig,
     /// Optional CAWG verification options (requires feature)
     #[cfg(feature = "cawg")]
     pub cawg: Option<crate::domain::cawg::CawgVerifyOptions>,
@@ -88,6 +117,7 @@ impl Default for C2paVerificationConfig {
             policy: EngineDefaults::HAS_TRUST_POLICY,
             allow_remote_manifests: EngineDefaults::ALLOW_REMOTE_MANIFESTS,
             include_certificates: EngineDefaults::INCLUDE_CERTIFICATES,
+            limits: LimitsConfig::defaults(),
             #[cfg(feature = "cawg")]
             cawg: None, // CAWG validation disabled by default (secure)
         }
@@ -111,6 +141,7 @@ impl C2paConfig {
             trust_policy: EngineDefaults::HAS_TRUST_POLICY,
             skip_post_sign_validation: EngineDefaults::SKIP_POST_SIGN_VALIDATION,
             allow_insecure_remote_http: EngineDefaults::ALLOW_INSECURE_HTTP,
+            limits: LimitsConfig::defaults(),
             #[cfg(feature = "cawg")]
             cawg_identity: None, // CAWG disabled by default (secure)
         }
@@ -126,6 +157,7 @@ impl C2paVerificationConfig {
             policy: EngineDefaults::HAS_TRUST_POLICY,
             allow_remote_manifests: EngineDefaults::ALLOW_REMOTE_MANIFESTS,
             include_certificates: EngineDefaults::INCLUDE_CERTIFICATES,
+            limits: LimitsConfig::defaults(),
             #[cfg(feature = "cawg")]
             cawg: None, // CAWG validation disabled by default (secure)
         }
@@ -139,6 +171,8 @@ pub struct IngredientConfig {
     /// If Path(dir), write a folder with resources and an `ingredient.json` file.
     /// If Memory, return the serialized `ingredient.json` bytes.
     pub output: OutputTarget,
+    /// Per-call limits. Used when converting inputs to temp files.
+    pub limits: LimitsConfig,
 }
 
 impl IngredientConfig {
@@ -147,6 +181,7 @@ impl IngredientConfig {
         Self {
             source,
             output: EngineDefaults::OUTPUT_TARGET,
+            limits: LimitsConfig::defaults(),
         }
     }
 }
@@ -168,6 +203,8 @@ pub struct FragmentedBmffConfig {
     pub skip_post_sign_validation: bool,
     /// Opt-in: allow insecure HTTP for remote manifest URL (requires feature)
     pub allow_insecure_remote_http: Option<bool>,
+    /// Per-call limits for any size-sensitive operations.
+    pub limits: LimitsConfig,
 }
 
 impl FragmentedBmffConfig {
@@ -191,6 +228,7 @@ impl FragmentedBmffConfig {
             embed: EngineDefaults::EMBED_MANIFESTS,
             skip_post_sign_validation: EngineDefaults::SKIP_POST_SIGN_VALIDATION,
             allow_insecure_remote_http: EngineDefaults::ALLOW_INSECURE_HTTP,
+            limits: LimitsConfig::defaults(),
         }
     }
 }

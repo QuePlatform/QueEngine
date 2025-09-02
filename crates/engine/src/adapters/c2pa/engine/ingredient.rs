@@ -21,7 +21,7 @@ pub fn create_ingredient(
         OutputTarget::Path(dir) => {
           std::fs::create_dir_all(&dir)?;
           // There is no from_stream_with_folder; use a temp file.
-          let (temp_path, _temp_dir) = asset_to_temp_path(&config.source)?;
+          let (temp_path, _temp_dir) = asset_to_temp_path(&config.source, config.limits)?;
           let report = Ingredient::from_file_with_folder(&temp_path, &dir)?;
           std::fs::write(dir.join("ingredient.json"), report.to_string())?;
           Ok(None)
@@ -33,7 +33,7 @@ pub fn create_ingredient(
       }
     }
     _ => {
-      let (source_path, _temp_dir) = asset_to_temp_path(&config.source)?;
+      let (source_path, _temp_dir) = asset_to_temp_path(&config.source, config.limits)?;
       match config.output {
         OutputTarget::Path(dir) => {
           std::fs::create_dir_all(&dir)?;

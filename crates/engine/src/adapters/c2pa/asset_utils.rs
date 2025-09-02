@@ -1,6 +1,5 @@
 use crate::domain::error::{EngineError, EngineResult};
-use crate::domain::types::AssetRef;
-use super::constants::{MAX_IN_MEMORY_ASSET_SIZE, MAX_STREAM_COPY_SIZE};
+use crate::domain::types::{AssetRef, LimitsConfig};
 use super::content_detection::detect_extension_from_bytes;
 
 /// Copy data from reader to writer with size limits to prevent memory exhaustion
@@ -40,11 +39,12 @@ pub fn copy_with_limits<R: std::io::Read, W: std::io::Write>(
 
 pub fn asset_to_temp_path(
   asset: &AssetRef,
+  limits: LimitsConfig,
 ) -> EngineResult<(std::path::PathBuf, Option<tempfile::TempDir>)> {
   match asset {
     AssetRef::Path(p) => Ok((p.clone(), None)),
     AssetRef::Bytes { data } => {
-      if data.len() > MAX_IN_MEMORY_ASSET_SIZE {
+      if data.len() > limits.max_in_memory_asset_size {
         return Err(EngineError::Config("in-memory asset too large".into()));
       }
       let dir = tempfile::tempdir()?;
@@ -89,7 +89,9 @@ pub fn asset_to_temp_path(
 
       // Borrow mutably from the RefCell and copy with protection limits
       let mut reader_ref = reader.borrow_mut();
-      let _bytes_copied = copy_with_limits(&mut *reader_ref, &mut file, MAX_STREAM_COPY_SIZE)?;
+      // Note: max_stream_read_timeout_secs is currently not enforced at this layer.
+      // It is included in LimitsConfig for future extension and parity with defaults.
+      let _bytes_copied = copy_with_limits(&mut *reader_ref, &mut file, limits.max_stream_copy_size)?;
       Ok((path, Some(dir)))
     }
   }

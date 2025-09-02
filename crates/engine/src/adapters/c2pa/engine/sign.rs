@@ -4,7 +4,6 @@ use crate::domain::error::{EngineError, EngineResult};
 use crate::domain::types::{AssetRef, C2paConfig, OutputTarget};
 use super::super::settings::{with_c2pa_settings, prepare_manifest_json};
 use super::super::asset_utils::asset_to_temp_path;
-use super::super::constants::MAX_IN_MEMORY_OUTPUT_SIZE;
 
 #[cfg(feature = "cawg")]
 use super::super::cawg;
@@ -57,7 +56,7 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
           .await?;
 
           // Support all input types by converting to a temp path when needed
-          let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source)?;
+          let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source, config.limits)?;
           match &config.output {
             OutputTarget::Path(dest) => {
               builder.sign_file_async(&*signer, &src_path, dest).await?;
@@ -68,7 +67,7 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
               let temp_path = temp_dir.path().join("signed_asset");
               builder.sign_file_async(&*signer, &src_path, &temp_path).await?;
               let buf = std::fs::read(&temp_path)?;
-              if buf.len() > MAX_IN_MEMORY_OUTPUT_SIZE {
+              if buf.len() > config.limits.max_in_memory_output_size {
                 return Err(EngineError::Config(
                   "signed output too large to return in memory".into(),
                 ));
@@ -104,7 +103,7 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
         }
 
         (AssetRef::Path(_) | AssetRef::Bytes { .. }, _) => {
-          let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source)?;
+          let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source, config.limits)?;
           match &config.output {
             OutputTarget::Path(dest) => {
               builder.sign_file(&*signer, &src_path, dest)?;
@@ -115,7 +114,7 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
               let out_path = dir.path().join("output_asset");
               builder.sign_file(&*signer, &src_path, &out_path)?;
               let meta = std::fs::metadata(&out_path)?;
-              if meta.len() as usize > MAX_IN_MEMORY_OUTPUT_SIZE {
+              if meta.len() as usize > config.limits.max_in_memory_output_size {
                 return Err(EngineError::Config(
                   "signed output too large to return in memory".into(),
                 ));
