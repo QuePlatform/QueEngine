@@ -7,7 +7,7 @@
 ## Current Status
 
 ✅ **Swift & Kotlin**: Fully working with complete API coverage
-⚠️ **WASM**: Configured but blocked by OpenSSL dependencies (see below)
+❌ **WASM**: Not supported - blocked by upstream crypto library dependencies
 
 ## FFI API Surface
 
@@ -62,6 +62,7 @@ que-engine-ffi = { version = "0.1", features = ["bmff", "cawg", "remote_manifest
 
 Available features:
 - `c2pa` (default) - Core C2PA functionality
+- `wasm` - WASM-compatible crypto (rust_native_crypto instead of OpenSSL)
 - `bmff` - Fragmented BMFF support
 - `cawg` - CAWG identity assertions
 - `remote_manifests` - Remote manifest fetching
@@ -123,6 +124,39 @@ val result = QueEngine.signC2paFfi(config)
 
 ## WASM Support
 
-**Current Status**: ⚠️ **Not Available** - Blocked by OpenSSL dependencies
+**Current Status**: ❌ **Not Supported**
 
-The FFI crate is fully configured for WASM generation, but WASM bindings cannot be built due to the underlying `c2pa` crate's dependency on OpenSSL, which doesn't compile to WASM targets.
+WASM bindings cannot be generated due to upstream dependencies in the c2pa crate. The `rust_native_crypto` feature relies on the `ring` cryptographic library, which contains C code that cannot be compiled to WASM targets. This creates an incompatible dependency chain that prevents WASM compilation.
+
+### Technical Details
+
+- **Root Cause**: The `ring` crate (used by `rust_native_crypto`) includes C source files
+- **Build Error**: `clang` cannot target `wasm32-unknown-unknown` for C compilation
+- **Dependency Chain**: `c2pa` → `ring` → C source files → WASM compilation failure
+
+### Current Workarounds
+
+1. **Use OpenSSL with WASI** (limited compatibility):
+   ```bash
+   # This works but has limited WASM environment support
+   cargo +nightly build -p c2pa --features openssl --wasm32-wasi
+   ```
+
+2. **Use Different Crypto Library**: Would require:
+   - Replacing `ring` with a pure Rust crypto library (e.g., `rust-crypto`)
+   - Contributing changes back to the `c2pa` crate
+   - Or forking and maintaining a WASM-compatible version
+
+### Future Resolution
+
+WASM support will become available when:
+- The `c2pa` crate replaces `ring` with a pure Rust crypto library
+- Or `ring` provides WASM-compatible builds
+- Or the c2pa project adds a WASM-specific crypto backend
+
+### Alternative Approaches
+
+For now, WASM applications requiring C2PA functionality should:
+1. Use server-side processing with Swift/Kotlin bindings
+2. Implement C2PA operations in a separate service
+3. Wait for upstream crypto library updates

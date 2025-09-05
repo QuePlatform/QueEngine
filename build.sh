@@ -13,7 +13,6 @@ cargo run -p que-engine-ffi --bin uniffi-bindgen generate \
   --language kotlin \
   --out-dir bindings/kotlin
 
-# WASM bindings - Ready but requires WASM-compatible crypto
-# wasm-pack build crates/ffi --target web --out-dir bindings/js
-#
-# Note: Currently blocked by OpenSSL dependency in the c2pa crate
+# WASM bindings - Infrastructure ready, blocked by ring crate C dependencies
+# wasm-pack build crates/ffi --target web --out-dir bindings/js --no-default-features --features c2pa,wasm
+# Note: Currently blocked by ring crate's C dependencies. Will work once resolved upstream.

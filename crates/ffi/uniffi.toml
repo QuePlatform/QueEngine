@@ -11,3 +11,6 @@ cdylib_name = "que_engine_ffi"
 
 [bindings.ruby]
 cdylib_name = "que_engine_ffi"
+
+[bindings.javascript]
+cdylib_name = "que_engine_ffi"

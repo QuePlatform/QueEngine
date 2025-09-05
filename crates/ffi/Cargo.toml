@@ -16,6 +16,7 @@ uniffi = { version = "0.28", features = ["cli"] }
 default = ["c2pa", "openssl"]
 c2pa = ["que-engine/c2pa"]
 openssl = ["que-engine/openssl"]
+wasm = ["que-engine/wasm"]
 bmff = ["que-engine/bmff"]
 cawg = ["que-engine/cawg"]
 remote_manifests = ["que-engine/remote_manifests"]

@@ -10,10 +10,10 @@ description = "Que provenance engine (C2PA adapter, feature-gated signers)"
 [features]
 default  = ["c2pa", "openssl"]
 c2pa     = ["dep:c2pa"]
-openssl  = ["dep:openssl"]
+openssl  = ["dep:openssl", "c2pa/openssl"]
 local    = []            # dev signer (from files/env)
 enclave  = []            # on-device signer
-wasm     = []            # optional future WASM build
+wasm     = ["c2pa/rust_native_crypto"] # WASM-compatible crypto (no OpenSSL)
 ffi      = []            # when building with the ffi crate
 bmff = ["dep:glob"]
 remote_manifests = []    # opt-in: allow fetching remote manifests at runtime
@@ -29,10 +29,9 @@ once_cell = "1.18"
 zeroize = "1"
 
 # Optional deps hidden behind features
-c2pa = { version = "0.59", optional = true, features = [
+c2pa = { version = "0.59", optional = true, default-features = false, features = [
   "file_io",
   "add_thumbnails",
-  "openssl",
   "fetch_remote_manifests",
 ] }
 openssl = { version = "0.10", optional = true }
