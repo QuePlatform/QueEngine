@@ -1,6 +1,6 @@
 use crate::domain::error::{EngineError, EngineResult};
 use crate::domain::types::{AssetRef, LimitsConfig};
-use super::content_detection::detect_extension_from_bytes;
+use super::content_detection::{detect_extension_from_bytes, extension_to_mime_type};
 
 /// Copy data from reader to writer with size limits to prevent memory exhaustion
 pub fn copy_with_limits<R: std::io::Read, W: std::io::Write>(
@@ -60,9 +60,8 @@ pub fn asset_to_temp_path(
     AssetRef::Stream { reader, content_type } => {
       let dir = tempfile::tempdir()?;
 
-      // Determine filename based on content type hint or detection
+      // Determine filename based on content type hint or by sniffing the stream header
       let filename = if let Some(ct) = content_type {
-        // Convert MIME type to extension
         match ct.as_str() {
           "image/jpeg" => "asset.jpg".to_string(),
           "image/png" => "asset.png".to_string(),
@@ -71,11 +70,24 @@ pub fn asset_to_temp_path(
           "video/mp4" => "asset.mp4".to_string(),
           "audio/mpeg" => "asset.mp3".to_string(),
           "application/pdf" => "asset.pdf".to_string(),
-          _ => "asset".to_string(), // Unknown MIME type, use generic name
+          _ => "asset".to_string(),
         }
       } else {
-        // No content type hint, use generic name and let c2pa handle it
-        "asset".to_string()
+        // Sniff a few bytes to infer an extension when no content type is provided
+        let mut maybe_ext: Option<String> = None;
+        {
+          use std::io::{Read, Seek, SeekFrom};
+          let mut reader_ref = reader.borrow_mut();
+          let mut head = [0u8; 512];
+          let n = reader_ref.read(&mut head).unwrap_or(0);
+          let _ = reader_ref.seek(SeekFrom::Start(0));
+          if n > 0 {
+            if let Some(ext) = detect_extension_from_bytes(&head[..n]) {
+              maybe_ext = Some(ext.to_string());
+            }
+          }
+        }
+        if let Some(ext) = maybe_ext { format!("asset.{ext}") } else { "asset".to_string() }
       };
 
       let path = dir.path().join(filename);
@@ -95,4 +107,16 @@ pub fn asset_to_temp_path(
       Ok((path, Some(dir)))
     }
   }
+}
+
+/// Peek the first bytes from a Read+Seek stream and infer a MIME type.
+/// The stream position is restored to the start before returning.
+pub fn sniff_content_type_from_reader<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Option<&'static str> {
+  use std::io::{Read, Seek, SeekFrom};
+  let mut head = [0u8; 512];
+  let n = reader.read(&mut head).ok()?;
+  let _ = reader.seek(SeekFrom::Start(0));
+  if n == 0 { return None; }
+  let ext = detect_extension_from_bytes(&head[..n])?;
+  Some(extension_to_mime_type(ext))
 }

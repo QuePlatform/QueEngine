@@ -55,6 +55,31 @@ pub use domain::manifest_engine::ManifestEngine;
 pub use domain::types::{SigAlg, VerifyMode, TrustPolicyConfig};
 pub use domain::verify::VerificationResult;
 
+// Attach example docs to a private const to satisfy rustdoc
+#[allow(dead_code)]
+const _DOCS_EXAMPLES: () = {
+    ()
+};
+
+/// Example: verify from stream without content_type using sniffing fallback
+/// ```ignore
+/// use que_engine::{verify_c2pa, C2paVerificationConfig, AssetRef, VerifyMode, LimitsConfig};
+/// use std::fs::File;
+/// use std::io::{Read, Seek};
+/// let f = File::open("profile.JPG").unwrap();
+/// let reader: Box<dyn que_engine::domain::types::StreamReader> = Box::new(f);
+/// let cfg = C2paVerificationConfig {
+///     source: AssetRef::Stream { reader: std::cell::RefCell::new(reader), content_type: None },
+///     mode: VerifyMode::Summary,
+///     policy: None,
+///     allow_remote_manifests: false,
+///     include_certificates: None,
+///     limits: LimitsConfig::defaults(),
+///     #[cfg(feature = "cawg")] cawg: None,
+/// };
+/// let _ = verify_c2pa(cfg);
+/// ```
+
 // CAWG types (feature-gated)
 #[cfg(feature = "cawg")]
 pub use domain::cawg::{CawgIdentity, CawgVerifyOptions, CawgVerification, CawgSigner};

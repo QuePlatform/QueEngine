@@ -3,7 +3,7 @@
 use crate::domain::error::{EngineError, EngineResult};
 use crate::domain::types::{AssetRef, C2paConfig, OutputTarget};
 use super::super::settings::{with_c2pa_settings, prepare_manifest_json};
-use super::super::asset_utils::asset_to_temp_path;
+use super::super::asset_utils::{asset_to_temp_path, sniff_content_type_from_reader};
 
 #[cfg(feature = "cawg")]
 use super::super::cawg;
@@ -11,6 +11,7 @@ use super::super::cawg;
 use super::common::ensure_claim_version_2;
 
 use super::common::{build_trust_settings, run_on_current_thread, setup_builder};
+
 
 pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
   #[cfg(not(feature = "c2pa"))]
@@ -86,10 +87,12 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
 
       match (&config.source, &config.output) {
         (AssetRef::Stream { reader, content_type }, OutputTarget::Memory) => {
+          let mut source_reader = reader.borrow_mut();
+          let sniffed = sniff_content_type_from_reader(&mut *source_reader);
           let format = content_type
             .as_deref()
+            .or(sniffed)
             .unwrap_or("application/octet-stream");
-          let mut source_reader = reader.borrow_mut();
           let mut output_buf = Vec::new();
           let mut output_cursor = std::io::Cursor::new(&mut output_buf);
 
@@ -126,10 +129,12 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
         }
 
         (AssetRef::Stream { reader, content_type }, OutputTarget::Path(dest)) => {
+          let mut source_reader = reader.borrow_mut();
+          let sniffed = sniff_content_type_from_reader(&mut *source_reader);
           let format = content_type
             .as_deref()
+            .or(sniffed)
             .unwrap_or("application/octet-stream");
-          let mut source_reader = reader.borrow_mut();
           let mut output_file = std::fs::File::create(dest)?;
 
           let _manifest_bytes = builder.sign(

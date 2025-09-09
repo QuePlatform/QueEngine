@@ -4,12 +4,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.2] - 2025-01-25
+
+### Fixed
+- **Stream MIME Type Detection**
+  - Fixed "type is unsupported" error for `AssetRef::Stream` inputs without `content_type`
+  - Engine now automatically detects MIME types by sniffing first 512 bytes of streams
+  - Supports common formats: JPEG, PNG, MP4, MP3, PDF, and others
+  - Backward compatible: explicit `content_type` still takes precedence
+
+### Added
+- **Improved Test Architecture**
+  - Moved integration tests to separate `tests/` directory for better organization
+  - Added dedicated test files for stream signing and verification scenarios
+  - Tests now run as integration tests instead of unit tests for cleaner separation
+
+### Known Issues
 - **WASM Support Status**
   - WASM bindings cannot be implemented due to upstream c2pa crate dependencies
   - The `ring` cryptographic library contains C code incompatible with WASM compilation
   - Infrastructure is ready but blocked by upstream dependency chain
   - Alternative: Use WASI with OpenSSL for server-side WASM environments
+
+## [Unreleased]
 
 
 ## [0.1.1] - 2025-01-15

@@ -182,3 +182,7 @@ use que_engine::{create_cawg_verify_options, CawgVerifyOptions};
 // Enable CAWG validation and require valid identity
 let cawg_opts = create_cawg_verify_options(true, true);
 ```
+
+### Streams without content_type
+
+When providing `AssetRef::Stream` sources, the engine now auto-detects MIME from the first 512 bytes. If you already know the type, set `content_type` (e.g., `image/jpeg`) to skip sniffing. If neither is provided nor detectable, C2PA may return `UnsupportedType`.

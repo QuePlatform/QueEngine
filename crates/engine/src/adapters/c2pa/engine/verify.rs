@@ -8,7 +8,7 @@ use crate::domain::types::{AssetRef, C2paVerificationConfig, VerifyMode};
 use crate::domain::verify::{
   CertInfo, ValidationStatus, VerificationResult, Verdict,
 };
-use super::super::asset_utils::asset_to_temp_path;
+use super::super::asset_utils::{asset_to_temp_path, sniff_content_type_from_reader};
 use super::super::settings::with_c2pa_settings;
 
 #[cfg(feature = "cawg")]
@@ -48,10 +48,12 @@ pub fn verify_c2pa(
     with_c2pa_settings(&settings, || {
       let mut reader = match &config.source {
         AssetRef::Stream { reader, content_type } => {
+          let mut stream = reader.borrow_mut();
+          let sniffed = sniff_content_type_from_reader(&mut *stream);
           let format = content_type
             .as_deref()
+            .or(sniffed)
             .unwrap_or("application/octet-stream");
-          let mut stream = reader.borrow_mut();
           Reader::from_stream(format, &mut *stream)?
         }
         _ => {
