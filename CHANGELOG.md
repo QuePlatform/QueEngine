@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.2] - 2025-01-25
+## [0.1.3] - 2025-09-11
+
+### Fixed
+- **CAWG Runtime Conflict**
+  - Fixed "Cannot start a runtime from within a runtime" error when using CAWG functionality
+  - Updated `run_on_current_thread()` to detect existing Tokio runtime and use `block_in_place` instead of creating nested runtime
+  - Added `rt-multi-thread` feature to Tokio dependency to enable `block_in_place` API
+  - CAWG signing and verification now work correctly when called from within existing async contexts
+  - Added unit tests to verify runtime-aware behavior both inside and outside Tokio runtimes
+
+## [0.1.2] - 2025-09-04
 
 ### Fixed
 - **Stream MIME Type Detection**
@@ -26,10 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Infrastructure is ready but blocked by upstream dependency chain
   - Alternative: Use WASI with OpenSSL for server-side WASM environments
 
-## [Unreleased]
-
-
-## [0.1.1] - 2025-01-15
+## [0.1.1] - 2025-08-31
 
 [Full Changelog](https://github.com/QuePlatform/QueEngine/compare/v0.1.0...v0.1.1)
 

@@ -112,7 +112,7 @@ pub fn asset_to_temp_path(
 /// Peek the first bytes from a Read+Seek stream and infer a MIME type.
 /// The stream position is restored to the start before returning.
 pub fn sniff_content_type_from_reader<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Option<&'static str> {
-  use std::io::{Read, Seek, SeekFrom};
+  use std::io::{SeekFrom};
   let mut head = [0u8; 512];
   let n = reader.read(&mut head).ok()?;
   let _ = reader.seek(SeekFrom::Start(0));

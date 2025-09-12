@@ -110,9 +110,39 @@ pub fn run_on_current_thread<F, T>(fut: F) -> EngineResult<T>
 where
   F: std::future::Future<Output = EngineResult<T>>,
 {
+  // If we're already inside a Tokio runtime, avoid creating a nested runtime.
+  // Use block_in_place to safely block on the current multi-thread runtime.
+  if let Ok(handle) = tokio::runtime::Handle::try_current() {
+    return tokio::task::block_in_place(|| handle.block_on(fut));
+  }
+
+  // Otherwise, create a lightweight current-thread runtime just for this call.
   let rt = tokio::runtime::Builder::new_current_thread()
     .enable_all()
     .build()
     .map_err(|e| EngineError::Config(format!("Failed to create tokio runtime: {}", e)))?;
   rt.block_on(fut)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn run_on_current_thread_outside_runtime() {
+    let res: EngineResult<()> = run_on_current_thread(async { Ok(()) });
+    assert!(res.is_ok());
+  }
+
+  #[test]
+  fn run_on_current_thread_inside_multithread_runtime() {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+      .enable_all()
+      .build()
+      .expect("build rt");
+    let res: EngineResult<()> = rt.block_on(async {
+      run_on_current_thread(async { Ok(()) })
+    });
+    assert!(res.is_ok());
+  }
 }
