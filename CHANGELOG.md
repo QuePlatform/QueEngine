@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2025-09-12
+
+### Fixed
+- **CAWG Stream Signing Support**
+  - Fixed "type is unsupported" error for CAWG signing with streams without content type or files without extensions
+  - CAWG signing now uses stream-aware logic matching non-CAWG path: leverages `content_type` hints and MIME type sniffing
+  - Supports all `AssetRef` input types (Path, Bytes, Stream) for both in-memory and file output targets
+  - Eliminates reliance on file extensions for type detection in CAWG signing path
+  - Backward compatible: maintains existing file-based signing for Path/Bytes inputs while adding stream support
+
 ## [0.1.4] - 2025-09-11
 
 ### Fixed

@@ -56,24 +56,67 @@ pub fn sign_c2pa(config: C2paConfig) -> EngineResult<Option<Vec<u8>>> {
           )
           .await?;
 
-          // Support all input types by converting to a temp path when needed
-          let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source, config.limits)?;
-          match &config.output {
-            OutputTarget::Path(dest) => {
-              builder.sign_file_async(&*signer, &src_path, dest).await?;
+          // Prefer stream-based async signing for streams to avoid relying on file extensions
+          match (&config.source, &config.output) {
+            (AssetRef::Stream { reader, content_type }, OutputTarget::Memory) => {
+              let mut source_reader = reader.borrow_mut();
+              let sniffed = sniff_content_type_from_reader(&mut *source_reader);
+              let format = content_type
+                .as_deref()
+                .or(sniffed)
+                .unwrap_or("application/octet-stream");
+
+              let mut output_buf = Vec::new();
+              let mut output_cursor = std::io::Cursor::new(&mut output_buf);
+
+              builder.sign_async(
+                &*signer,
+                format,
+                &mut *source_reader,
+                &mut output_cursor,
+              ).await?;
+              Ok(Some(output_buf))
+            }
+
+            (AssetRef::Stream { reader, content_type }, OutputTarget::Path(dest)) => {
+              let mut source_reader = reader.borrow_mut();
+              let sniffed = sniff_content_type_from_reader(&mut *source_reader);
+              let format = content_type
+                .as_deref()
+                .or(sniffed)
+                .unwrap_or("application/octet-stream");
+
+              let mut output_file = std::fs::File::create(dest)?;
+              builder.sign_async(
+                &*signer,
+                format,
+                &mut *source_reader,
+                &mut output_file,
+              ).await?;
               Ok(None)
             }
-            OutputTarget::Memory => {
-              let temp_dir = tempfile::tempdir()?;
-              let temp_path = temp_dir.path().join("signed_asset");
-              builder.sign_file_async(&*signer, &src_path, &temp_path).await?;
-              let buf = std::fs::read(&temp_path)?;
-              if buf.len() > config.limits.max_in_memory_output_size {
-                return Err(EngineError::Config(
-                  "signed output too large to return in memory".into(),
-                ));
+
+            // Path/Bytes: keep file-based async signing
+            (AssetRef::Path(_) | AssetRef::Bytes { .. }, _) => {
+              let (src_path, _tmp_src_dir) = asset_to_temp_path(&config.source, config.limits)?;
+              match &config.output {
+                OutputTarget::Path(dest) => {
+                  builder.sign_file_async(&*signer, &src_path, dest).await?;
+                  Ok(None)
+                }
+                OutputTarget::Memory => {
+                  let temp_dir = tempfile::tempdir()?;
+                  let temp_path = temp_dir.path().join("signed_asset");
+                  builder.sign_file_async(&*signer, &src_path, &temp_path).await?;
+                  let buf = std::fs::read(&temp_path)?;
+                  if buf.len() > config.limits.max_in_memory_output_size {
+                    return Err(EngineError::Config(
+                      "signed output too large to return in memory".into(),
+                    ));
+                  }
+                  Ok(Some(buf))
+                }
               }
-              Ok(Some(buf))
             }
           }
         });

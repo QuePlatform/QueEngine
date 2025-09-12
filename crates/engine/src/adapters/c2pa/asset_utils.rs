@@ -42,7 +42,32 @@ pub fn asset_to_temp_path(
   limits: LimitsConfig,
 ) -> EngineResult<(std::path::PathBuf, Option<tempfile::TempDir>)> {
   match asset {
-    AssetRef::Path(p) => Ok((p.clone(), None)),
+    AssetRef::Path(p) => {
+      // If the path has an extension, use it as-is. Otherwise, sniff and copy to a temp
+      // file with an inferred extension so downstream file-based APIs can determine type.
+      if p.extension().is_some() {
+        return Ok((p.clone(), None));
+      }
+
+      // Try to sniff by reading the first bytes of the file
+      let mut head = [0u8; 512];
+      let mut file = std::fs::File::open(p)
+        .map_err(|e| EngineError::Io(e))?;
+      let n = std::io::Read::read(&mut file, &mut head)
+        .map_err(|e| EngineError::Io(e))?;
+
+      let maybe_ext = if n > 0 {
+        detect_extension_from_bytes(&head[..n]).map(|s| s.to_string())
+      } else { None };
+
+      // Create a temp file and copy the full content there, with inferred extension if any
+      let dir = tempfile::tempdir()?;
+      let filename = if let Some(ext) = maybe_ext { format!("asset.{ext}") } else { "asset".to_string() };
+      let temp_path = dir.path().join(filename);
+      std::fs::copy(p, &temp_path)
+        .map_err(|e| EngineError::Io(e))?;
+      Ok((temp_path, Some(dir)))
+    },
     AssetRef::Bytes { data } => {
       if data.len() > limits.max_in_memory_asset_size {
         return Err(EngineError::Config("in-memory asset too large".into()));
