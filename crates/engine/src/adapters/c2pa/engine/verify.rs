@@ -46,7 +46,7 @@ pub fn verify_c2pa(
     }
 
     with_c2pa_settings(&settings, || {
-      let reader = match &config.source {
+      let mut reader = match &config.source {
         AssetRef::Stream { reader, content_type } => {
           let mut stream = reader.borrow_mut();
           let sniffed = sniff_content_type_from_reader(&mut *stream);
