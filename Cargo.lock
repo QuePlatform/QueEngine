@@ -2492,7 +2492,7 @@ dependencies = [
 
 [[package]]
 name = "que-engine"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "c2pa",
  "glob",

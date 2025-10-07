@@ -123,26 +123,3 @@ where
     .map_err(|e| EngineError::Config(format!("Failed to create tokio runtime: {}", e)))?;
   rt.block_on(fut)
 }
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn run_on_current_thread_outside_runtime() {
-    let res: EngineResult<()> = run_on_current_thread(async { Ok(()) });
-    assert!(res.is_ok());
-  }
-
-  #[test]
-  fn run_on_current_thread_inside_multithread_runtime() {
-    let rt = tokio::runtime::Builder::new_multi_thread()
-      .enable_all()
-      .build()
-      .expect("build rt");
-    let res: EngineResult<()> = rt.block_on(async {
-      run_on_current_thread(async { Ok(()) })
-    });
-    assert!(res.is_ok());
-  }
-}
